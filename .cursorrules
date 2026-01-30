@@ -1,0 +1,114 @@
+# Cursor Rules for Expected Value Tools
+
+## Architecture Principles
+
+- Follow SOLID principles strictly
+- Maintain separation of concerns: parsing, normalization, enrichment, testing, and output are separate modules
+- Use abstract base classes for extensibility
+- Keep CLI logic separate from business logic
+- Tests should be independent and decoupled
+
+## Code Organization
+
+- Parsers go in `src/expectedvalue_tools/parsers/`
+- Normalizers go in `src/expectedvalue_tools/normalizers/`
+- Enrichers go in `src/expectedvalue_tools/enrichers/`
+- Tests go in `src/expectedvalue_tools/tests/`
+- Output formatters/visualizers go in `src/expectedvalue_tools/output/`
+- Utilities go in `src/expectedvalue_tools/utils/`
+
+## Adding New Tests
+
+When adding a new test:
+1. Create a new class in `src/expectedvalue_tools/tests/` extending `BaseTest`
+2. Implement `run()`, `get_name()`, and `get_description()` methods
+3. Register the test in `src/expectedvalue_tools/cli/main.py` in the `TESTS` list
+4. **MUST UPDATE README.md**:
+   - Add the test to the "Available Tests" section
+   - Include description, logic explanation, key metrics, usage, and examples
+   - Update the "Examples" section if applicable
+
+## Adding New Parsers
+
+When adding a new parser:
+1. Create a new class in `src/expectedvalue_tools/parsers/` extending `BaseParser`
+2. Implement `parse()`, `validate()`, and `detect_format()` methods
+3. Register the parser in `src/expectedvalue_tools/cli/main.py` in the `PARSERS` list
+4. **MUST UPDATE README.md**:
+   - Add the parser to the "Data Format Support" section
+   - Document required columns/format
+   - Update examples if applicable
+
+## Adding New CLI Commands
+
+When adding new CLI commands:
+1. Add the command function in `src/expectedvalue_tools/cli/main.py`
+2. Use Typer decorators and follow existing patterns
+3. **MUST UPDATE README.md**:
+   - Add the command to the "CLI Reference" section
+   - Document arguments, options, and examples
+   - Update the "Examples" section
+
+## README Maintenance
+
+- **ALWAYS** update README.md when:
+  - Adding a new test (document in "Available Tests" section)
+  - Adding a new parser (document in "Data Format Support" section)
+  - Adding a new CLI command (document in "CLI Reference" section)
+  - Changing architecture (update "Architecture" section)
+  - Adding dependencies (update "Requirements" section)
+
+- Keep README examples up to date with actual CLI usage
+- Ensure all documented features match the implementation
+
+## Code Style
+
+- Use type hints for all function signatures
+- Follow PEP 8 naming conventions
+- Use docstrings for all public classes and functions
+- Keep functions focused and single-purpose
+- Prefer composition over inheritance where appropriate
+
+## Testing
+
+- Tests should be independent and not depend on other tests
+- Test logic should be separated from output formatting
+- Use the `verbose` parameter pattern for tests that need to control output
+- **Tests must NOT contain normalization or enrichment logic**
+- Tests should assume data is already normalized and enriched when received
+- All data transformations belong in normalizers/enrichers, not in tests
+
+## Separation of Concerns - Normalization and Enrichment
+
+- **Normalization logic belongs in normalizers** (`src/expectedvalue_tools/normalizers/`)
+  - Data format standardization (e.g., column name unification)
+  - Value scaling/normalization (e.g., converting live data to backtest scale)
+  - Derived column calculations (e.g., "Premium per Contract", "datetime_opened")
+  - Data type conversions and validations
+
+- **Enrichment logic belongs in enrichers** (`src/expectedvalue_tools/enrichers/`)
+  - Adding calculated metrics (e.g., win rates, statistics)
+  - Adding derived analysis columns
+  - Data augmentation that doesn't change core structure
+
+- **Tests should NOT perform normalization or enrichment**
+  - Tests receive pre-processed data from the CLI pipeline
+  - Tests focus solely on their specific analysis logic
+  - If a test needs normalized data, ensure the normalizer handles it
+  - If a test needs enriched data, ensure the enricher handles it
+
+- **CLI pipeline order**: Parse → Normalize → Enrich → Test
+  - The CLI ensures data flows through normalizers and enrichers before reaching tests
+  - When processing comparison tests with multiple sources, pass `source` parameter to normalizer
+
+## Dependencies
+
+- Keep core dependencies minimal (numpy, pandas, typer)
+- Optional dependencies (like matplotlib) should be in optional-dependencies
+- Document all dependencies in pyproject.toml
+
+## Output Formatting
+
+- Use the output formatters module for all text output
+- Keep visualization logic in the visualizers module
+- Support both verbose and non-verbose modes where applicable
