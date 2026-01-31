@@ -175,6 +175,61 @@ evtools test drawdown data.csv --portfolio-size 100000 --allocation 1.5
 - If portfolio detected (multiple strategies), the tool will interactively prompt for allocation % for each strategy
 - Each strategy is analyzed separately with its own allocation percentage
 
+### Tail Events Overfitting (`tail_overfitting`)
+
+**Description**: Detects whether a strategy's performance is disproportionately driven by a small number of extreme tail events. Identifies tail events, calculates overfitting scores, and shows baseline performance metrics without tail events to assess strategy robustness.
+
+**Logic**:
+1. **Tail Event Identification**: Identifies the top X% of trades by absolute P/L value as "tail events"
+   - Sorts all trades by absolute P/L (descending)
+   - Selects the top tail_count trades (based on tail_percentage)
+   - Can filter by direction: "all", "positive" (profits only), or "negative" (losses only)
+2. **Overfitting Score Calculation**: Compares tail event magnitude to typical trades
+   - Calculates average absolute P/L across all trades
+   - Calculates average absolute P/L for tail events only
+   - Overfitting score = avg_tail_abs_pnl / avg_abs_pnl
+   - Higher scores indicate more dependence on extreme events
+3. **Tail Contribution Analysis**: Shows what percentage of total absolute P/L comes from tail events
+   - Tail contribution = (sum of tail absolute P/L / sum of all absolute P/L) * 100
+4. **Baseline Performance Analysis**: Removes tail events and calculates performance metrics without them
+   - Shows total P/L, mean P/L per contract, and win rate without tail events
+   - Compares baseline metrics to full dataset metrics
+   - Helps assess strategy robustness - if baseline is still profitable, strategy is less dependent on extreme events
+
+**Key Metrics**:
+- **Overfitting Score**: Ratio of tail event magnitude to average trade magnitude (lower is better)
+- **Tail Contribution**: Percentage of total absolute P/L from tail events
+- **Total Trades**: Number of trades analyzed (after direction filtering)
+- **Tail Events Count**: Number of trades classified as tail events
+- **Average Absolute P/L (All)**: Average absolute P/L per contract across all trades
+- **Average Absolute P/L (Tail)**: Average absolute P/L per contract for tail events only
+- **Baseline Total P/L**: Total P/L without tail events removed
+- **Baseline Mean P/L**: Mean P/L per contract without tail events
+- **Baseline Win Rate**: Win rate without tail events
+- **P/L Difference**: Difference between P/L with and without tail events (tail contribution)
+
+**Usage**:
+```bash
+evtools test tail_overfitting <file> [OPTIONS]
+
+Options:
+  --tail-percentage, -t FLOAT   Percentage of trades to consider as tail events (default: 1.0, range: 0.1-50.0)
+  --max-score, -m FLOAT        Maximum acceptable overfitting score (default: 12.0, min: 1.0)
+  --tail-direction, -d STR     Which tail events to analyze: 'all', 'positive', or 'negative' (default: 'all')
+  --output-dir, -o PATH        Directory to save outputs
+```
+
+**Example**:
+```bash
+evtools test tail_overfitting data.csv --tail-percentage 1.0 --max-score 12.0
+evtools test tail_overfitting data.csv --tail-direction positive --tail-percentage 2.0
+```
+
+**Interpretation**:
+- **Passing Test** (overfitting_score < max_score): Strategy has more consistent performance, less dependent on rare extreme events
+- **Failing Test** (overfitting_score >= max_score): Strategy relies heavily on rare extreme events, may be overfitted to specific historical conditions
+- **Baseline Analysis**: If baseline performance (without tail events) is still profitable, the strategy is more robust. If baseline is unprofitable, the strategy depends heavily on catching extreme moves.
+
 ## Data Format Support
 
 ### Option Omega CSV
@@ -218,6 +273,9 @@ evtools test <test_name> <file_path> [OPTIONS]
 - `--window-minutes, -w`: Time window in minutes for matching trades (default: 10) - for `compare` test
 - `--portfolio-size, -p`: Initial portfolio size (default: 100000) - for `drawdown` test
 - `--allocation, -a`: Desired allocation percentage (default: 1.0) - for `drawdown` test
+- `--tail-percentage, -t`: Percentage of trades to consider as tail events (default: 1.0) - for `tail_overfitting` test
+- `--max-score, -m`: Maximum acceptable overfitting score (default: 12.0) - for `tail_overfitting` test
+- `--tail-direction, -d`: Which tail events to analyze: 'all', 'positive', or 'negative' (default: 'all') - for `tail_overfitting` test
 - `--output-dir, -o`: Directory to save histogram images
 
 #### `list-tests`
@@ -271,6 +329,22 @@ Analyze drawdowns and margin requirements:
 evtools test drawdown example_data/oo/backtests/single_strategy/RIC-IntraDay-Crush-IS.csv \
   --portfolio-size 100000 \
   --allocation 1.5
+```
+
+### Tail Events Overfitting Analysis
+
+Detect potential overfitting to extreme tail events:
+
+```bash
+evtools test tail_overfitting example_data/oo/backtests/single_strategy/Monday-2-4-DC.csv \
+  --tail-percentage 1.0 \
+  --max-score 12.0
+
+# Analyze only positive tail events
+evtools test tail_overfitting data.csv \
+  --tail-direction positive \
+  --tail-percentage 2.0 \
+  --max-score 10.0
 ```
 
 ## Architecture

@@ -8,7 +8,7 @@ import typer
 from ..parsers import BaseParser, OptionOmegaParser
 from ..normalizers import BaseNormalizer, TradeDataNormalizer
 from ..enrichers import BaseEnricher, TradeEnricher
-from ..tests import BaseTest, PowerAnalysisTest, LiveBacktestComparisonTest, DrawdownAnalysisTest
+from ..tests import BaseTest, PowerAnalysisTest, LiveBacktestComparisonTest, DrawdownAnalysisTest, TailOverfittingTest
 from ..output.visualizers import create_histograms
 from ..output.formatters import print_box
 from ..utils.colors import Colors
@@ -24,7 +24,7 @@ app = typer.Typer(
 PARSERS = [OptionOmegaParser()]
 
 # Registry for tests (auto-discover)
-TESTS = [PowerAnalysisTest(), LiveBacktestComparisonTest(), DrawdownAnalysisTest()]
+TESTS = [PowerAnalysisTest(), LiveBacktestComparisonTest(), DrawdownAnalysisTest(), TailOverfittingTest()]
 
 # Default normalizer and enricher
 NORMALIZER = TradeDataNormalizer()
@@ -511,6 +511,80 @@ def test_drawdown(
             "strategy_allocations": strategy_allocations if strategy_allocations else None,
             "force_one_lot": force_one_lot,
             "output_dir": output_dir,
+        }
+
+        # Process file
+        _process_file(file_path, test, test_kwargs, output_dir)
+
+        # Print disclaimer
+        _print_disclaimer()
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@test_app.command("tail_overfitting")
+def test_tail_overfitting(
+    file_path: str = typer.Argument(..., help="Path to data file"),
+    tail_percentage: float = typer.Option(
+        1.0, "--tail-percentage", "-t", help="Percentage of trades to consider as tail events (default: 1.0)"
+    ),
+    max_score: float = typer.Option(
+        12.0, "--max-score", "-m", help="Maximum acceptable overfitting score (default: 12.0)"
+    ),
+    tail_direction: str = typer.Option(
+        "all", "--tail-direction", "-d", help="Which tail events to analyze: 'all', 'positive', or 'negative' (default: 'all')"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o", help="Directory to save outputs"
+    ),
+):
+    """
+    Detect potential overfitting to extreme tail events in backtest results.
+    
+    Identifies tail events (top X% by absolute P/L), calculates overfitting scores,
+    and shows baseline performance metrics without tail events to assess strategy robustness.
+    
+    Examples:
+        evtools test tail_overfitting data.csv --tail-percentage 1.0 --max-score 12.0
+        evtools test tail_overfitting data.csv --tail-direction positive --tail-percentage 2.0
+    """
+    # Validate file exists
+    if not Path(file_path).exists():
+        typer.echo(f"Error: File not found: {file_path}", err=True)
+        raise typer.Exit(1)
+
+    # Validate tail_percentage
+    if not 0.1 <= tail_percentage <= 50.0:
+        typer.echo("Error: tail-percentage must be between 0.1 and 50.0", err=True)
+        raise typer.Exit(1)
+
+    # Validate max_score
+    if max_score < 1.0:
+        typer.echo("Error: max-score must be at least 1.0", err=True)
+        raise typer.Exit(1)
+
+    # Validate tail_direction
+    if tail_direction not in ["all", "positive", "negative"]:
+        typer.echo("Error: tail-direction must be 'all', 'positive', or 'negative'", err=True)
+        raise typer.Exit(1)
+
+    # Print header
+    _print_header()
+
+    try:
+        # Find test
+        test = _find_test("tail_overfitting")
+
+        # Prepare test kwargs
+        test_kwargs = {
+            "tail_percentage": tail_percentage,
+            "max_score": max_score,
+            "tail_direction": tail_direction,
         }
 
         # Process file
