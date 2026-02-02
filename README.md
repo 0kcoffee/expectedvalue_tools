@@ -1,4 +1,4 @@
-![Alt text](/images/logo.png)
+[<img src="/images/logo.png" alt="Alt text" width="100"/>](https://expectedvalue.trade)
 
 # Expected Value Tools
 
