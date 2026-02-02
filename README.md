@@ -1,3 +1,5 @@
+![Alt text](/images/logo.png)
+
 # Expected Value Tools
 
 Statistical analysis tools for trading strategies. This CLI tool provides comprehensive statistical testing capabilities to evaluate the robustness and reliability of trading strategies.
