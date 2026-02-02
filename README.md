@@ -1,8 +1,8 @@
 [<img src="/images/logo.png" alt="Alt text" width="300"/>](https://expectedvalue.trade)
 
-# Expected Value Tools
+# EVTools
 
-Statistical analysis tools for trading strategies. This CLI tool provides comprehensive statistical testing capabilities to evaluate the robustness and reliability of trading strategies.
+A comprehensive toolkit for quantitative analysis, power testing, and statistical validation of trading strategies. This CLI provides robust tools for parsing, normalization, enrichment, significance testing, and visualization, enabling deep evaluation of trading strategy performance and reliability across a wide range of data sources.
 
 ## Overview
 
