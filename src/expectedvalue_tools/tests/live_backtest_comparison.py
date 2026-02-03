@@ -280,9 +280,9 @@ class LiveBacktestComparisonTest(BaseTest):
         total_live_pl = live_df["P/L"].sum()
         overall_pl_diff = total_live_pl - total_backtest_pl
 
-        # Overall Premium difference (normalized to one contract)
-        # Should be the sum of P/L differences per contract for matched trades
-        # This equals the difference of sums of P/L per contract for matched trades
+        # Matched trades P/L difference (normalized to one contract)
+        # This is the P/L difference per contract for matched trades only
+        # Note: This will equal overall_pl_diff when all trades are matched and all have the same contract count
         matched_backtest_indices = {bt_idx for bt_idx, _ in matches}
         matched_live_indices = {live_idx for _, live_idx in matches}
         
@@ -295,9 +295,9 @@ class LiveBacktestComparisonTest(BaseTest):
             live_df[live_df.index.isin(matched_live_indices)]["P/L"] / 
             live_df[live_df.index.isin(matched_live_indices)]["No. of Contracts"]
         ).sum()
-        overall_premium_diff = matched_live_pl_per_contract - matched_backtest_pl_per_contract
-        
-        # Also keep premium sums for reference (but not used for overall_premium_diff)
+        matched_trades_pl_diff_per_contract = matched_live_pl_per_contract - matched_backtest_pl_per_contract
+
+        # Keep premium sums for reference
         matched_backtest_premium = backtest_df[backtest_df.index.isin(matched_backtest_indices)]["Premium per Contract"].sum()
         matched_live_premium = live_df[live_df.index.isin(matched_live_indices)]["Premium per Contract"].sum()
 
@@ -331,7 +331,7 @@ class LiveBacktestComparisonTest(BaseTest):
 
         return {
             "overall_pl_diff": overall_pl_diff,
-            "overall_premium_diff": overall_premium_diff,
+            "matched_trades_pl_diff_per_contract": matched_trades_pl_diff_per_contract,
             "total_backtest_pl": total_backtest_pl,
             "total_live_pl": total_live_pl,
             "total_backtest_premium": matched_backtest_premium,
@@ -608,55 +608,89 @@ class LiveBacktestComparisonTest(BaseTest):
         
         # Over trading: P/L from trades in live but not in backtest
         over_trading_pl = over_trades["P/L"].sum() if len(over_trades) > 0 else 0
+        over_trading_count = len(over_trades)
+        over_trading_avg = over_trading_pl / over_trading_count if over_trading_count > 0 else 0
         
         # Missed trades: Negative P/L from trades in backtest but not in live (opportunity cost)
         missed_trades_pl = -missed_trades["P/L"].sum() if len(missed_trades) > 0 else 0
+        missed_trades_count = len(missed_trades)
+        missed_trades_avg = missed_trades_pl / missed_trades_count if missed_trades_count > 0 else 0
         
         # Entry slippage: Sum of premium differences for matched trades
         # Positive premium_diff means we received more premium (good for P/L)
-        entry_slippage = sum(row.get("premium_diff", 0) for row in matched_trades_table)
+        entry_slippage_rows = [row for row in matched_trades_table if row.get("premium_diff", 0) != 0]
+        entry_slippage = sum(row.get("premium_diff", 0) for row in entry_slippage_rows)
+        entry_slippage_count = len(entry_slippage_rows)
+        entry_slippage_avg = entry_slippage / entry_slippage_count if entry_slippage_count > 0 else 0
         
-        # Exit slippage: Negate closing cost differences for matched trades
+        # Different outcome: P/L difference from trades that matched but had different outcomes
+        # These are trades where the reason for close differs (e.g., Stop Loss vs Expired)
+        different_outcome_rows = [row for row in matched_trades_table if not row.get("reason_match", True)]
+        different_outcome_pl = sum(row.get("pl_diff", 0) for row in different_outcome_rows)
+        different_outcome_count = len(different_outcome_rows)
+        different_outcome_avg = different_outcome_pl / different_outcome_count if different_outcome_count > 0 else 0
+        
+        # Exit slippage: Negate closing cost differences for matched trades WITH SAME OUTCOME
+        # Only include trades where reason for close matches (same outcome)
         # Positive closing_cost_diff means we paid more to close (bad for P/L), so negate it
-        exit_slippage = -sum(row.get("closing_cost_diff", 0) for row in matched_trades_table)
+        exit_slippage_rows = [row for row in matched_trades_table if row.get("reason_match", False) and row.get("closing_cost_diff", 0) != 0]
+        exit_slippage = -sum(row.get("closing_cost_diff", 0) for row in exit_slippage_rows)
+        exit_slippage_count = len(exit_slippage_rows)
+        exit_slippage_avg = exit_slippage / exit_slippage_count if exit_slippage_count > 0 else 0
         
         # Allocation impact: Calculate based on allocation deviations
         # Under-allocation: When live allocation < mean, we potentially lost profit on winning trades
         # Over-allocation: When live allocation > mean, we potentially lost more on losing trades
+        # Only calculated when contract counts differ between backtest and live
         mean_live_allocation = allocation_analysis.get("mean_live_allocation", 0)
         under_allocation_pl = 0
         over_allocation_pl = 0
+        under_allocation_count = 0
+        over_allocation_count = 0
         
         for row in matched_trades_table:
             alloc_live = row.get("alloc_live", 0)
             pl_diff = row.get("pl_diff", 0)
+            contracts_bt = row.get("contracts_bt", 1)
+            contracts_live = row.get("contracts_live", 1)
             
-            if mean_live_allocation > 0:
+            # Only calculate allocation impact if contract counts differ
+            # If both backtest and live used the same number of contracts, there's no allocation impact
+            if contracts_bt != contracts_live and mean_live_allocation > 0:
                 # Calculate allocation deviation
                 alloc_deviation = alloc_live - mean_live_allocation
                 
                 if alloc_deviation < 0:  # Under-allocated
+                    under_allocation_count += 1
                     # If we made profit but were under-allocated, we lost potential profit
                     if pl_diff > 0:
                         # Scale the profit difference by allocation ratio
                         ratio = alloc_live / mean_live_allocation if mean_live_allocation > 0 else 1
-                        under_allocation_pl += pl_diff * (1 - ratio)
+                        contribution = pl_diff * (1 - ratio)
+                        under_allocation_pl += contribution
                     elif pl_diff < 0:
                         # If we lost money but were under-allocated, we saved some loss
                         ratio = alloc_live / mean_live_allocation if mean_live_allocation > 0 else 1
-                        under_allocation_pl += abs(pl_diff) * (1 - ratio)
+                        contribution = abs(pl_diff) * (1 - ratio)
+                        under_allocation_pl += contribution
                 elif alloc_deviation > 0:  # Over-allocated
+                    over_allocation_count += 1
                     # If we lost money and were over-allocated, we lost more
                     if pl_diff < 0:
                         ratio = alloc_live / mean_live_allocation if mean_live_allocation > 0 else 1
-                        over_allocation_pl += abs(pl_diff) * (ratio - 1)
+                        contribution = abs(pl_diff) * (ratio - 1)
+                        over_allocation_pl += contribution
                     elif pl_diff > 0:
                         # If we made profit and were over-allocated, we made more
                         ratio = alloc_live / mean_live_allocation if mean_live_allocation > 0 else 1
-                        over_allocation_pl -= pl_diff * (ratio - 1)  # Negative because it's a gain
+                        contribution = -pl_diff * (ratio - 1)  # Negative because it's a gain
+                        over_allocation_pl += contribution
+        
+        under_allocation_avg = under_allocation_pl / under_allocation_count if under_allocation_count > 0 else 0
+        over_allocation_avg = over_allocation_pl / over_allocation_count if over_allocation_count > 0 else 0
         
         # Calculate percentages
-        total_attributed = abs(over_trading_pl) + abs(missed_trades_pl) + abs(entry_slippage) + abs(exit_slippage) + abs(under_allocation_pl) + abs(over_allocation_pl)
+        total_attributed = abs(over_trading_pl) + abs(missed_trades_pl) + abs(entry_slippage) + abs(exit_slippage) + abs(different_outcome_pl) + abs(under_allocation_pl) + abs(over_allocation_pl)
         
         def calc_percentage(value):
             if total_attributed > 0:
@@ -664,12 +698,48 @@ class LiveBacktestComparisonTest(BaseTest):
             return 0.0
         
         return {
-            "over_trading": {"value": over_trading_pl, "percentage": calc_percentage(over_trading_pl)},
-            "missed_trades": {"value": missed_trades_pl, "percentage": calc_percentage(missed_trades_pl)},
-            "entry_slippage": {"value": entry_slippage, "percentage": calc_percentage(entry_slippage)},
-            "exit_slippage": {"value": exit_slippage, "percentage": calc_percentage(exit_slippage)},
-            "under_allocation": {"value": under_allocation_pl, "percentage": calc_percentage(under_allocation_pl)},
-            "over_allocation": {"value": over_allocation_pl, "percentage": calc_percentage(over_allocation_pl)},
+            "over_trading": {
+                "value": over_trading_pl,
+                "percentage": calc_percentage(over_trading_pl),
+                "count": over_trading_count,
+                "average": over_trading_avg,
+            },
+            "missed_trades": {
+                "value": missed_trades_pl,
+                "percentage": calc_percentage(missed_trades_pl),
+                "count": missed_trades_count,
+                "average": missed_trades_avg,
+            },
+            "entry_slippage": {
+                "value": entry_slippage,
+                "percentage": calc_percentage(entry_slippage),
+                "count": entry_slippage_count,
+                "average": entry_slippage_avg,
+            },
+            "exit_slippage": {
+                "value": exit_slippage,
+                "percentage": calc_percentage(exit_slippage),
+                "count": exit_slippage_count,
+                "average": exit_slippage_avg,
+            },
+            "different_outcome": {
+                "value": different_outcome_pl,
+                "percentage": calc_percentage(different_outcome_pl),
+                "count": different_outcome_count,
+                "average": different_outcome_avg,
+            },
+            "under_allocation": {
+                "value": under_allocation_pl,
+                "percentage": calc_percentage(under_allocation_pl),
+                "count": under_allocation_count,
+                "average": under_allocation_avg,
+            },
+            "over_allocation": {
+                "value": over_allocation_pl,
+                "percentage": calc_percentage(over_allocation_pl),
+                "count": over_allocation_count,
+                "average": over_allocation_avg,
+            },
             "overall_pl_diff": overall_pl_diff,
         }
 

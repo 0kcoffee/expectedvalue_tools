@@ -445,11 +445,6 @@ def print_comparison_summary(results: dict) -> None:
             Colors.BRIGHT_GREEN if results["overall_pl_diff"] >= 0 else Colors.BRIGHT_RED,
         ),
         (
-            "Overall Premium Difference (Live - Backtest, per contract):",
-            f"${results['overall_premium_diff']:,.2f}",
-            Colors.BRIGHT_GREEN if results["overall_premium_diff"] >= 0 else Colors.BRIGHT_RED,
-        ),
-        (
             "Total Backtest P/L:",
             f"${results['total_backtest_pl']:,.2f}",
             Colors.BRIGHT_CYAN,
@@ -607,6 +602,13 @@ def print_slippage_analysis(results: dict) -> None:
         ),
     ]
     print_box(box_width, "SLIPPAGE ANALYSIS (FULLY MATCHED TRADES)", lines)
+    
+    # Add note if there are matched trades that aren't fully matched
+    num_matches = results.get("num_matches", 0)
+    num_full_matches = results.get("num_full_matches", 0)
+    if num_matches > num_full_matches:
+        print(f"\n{Colors.DIM}Note: Mean/Median statistics above only include fully matched trades (same outcome).{Colors.RESET}")
+        print(f"{Colors.DIM}Overall P/L Difference includes all matched trades, which may have different outcomes.{Colors.RESET}\n")
 
     # Print distribution of entry differences (premium differences)
     if len(stats["entry_diffs"]) > 0:
@@ -759,10 +761,16 @@ def print_allocation_analysis(results: dict) -> None:
         return
 
     box_width = 80
+    starting_portfolio = alloc.get('starting_portfolio_size', 0)
+    mean_backtest_pct = alloc['mean_backtest_allocation']
+    mean_live_pct = alloc['mean_live_allocation']
+    mean_backtest_dollar = starting_portfolio * (mean_backtest_pct / 100)
+    mean_live_dollar = starting_portfolio * (mean_live_pct / 100)
+    
     lines = [
         (
             "Mean Backtest Allocation:",
-            f"{alloc['mean_backtest_allocation']:.2f}%",
+            f"{mean_backtest_pct:.2f}% (${mean_backtest_dollar:,.2f})",
             Colors.BRIGHT_CYAN,
         ),
         (
@@ -777,7 +785,7 @@ def print_allocation_analysis(results: dict) -> None:
         ),
         (
             "Mean Live Allocation:",
-            f"{alloc['mean_live_allocation']:.2f}%",
+            f"{mean_live_pct:.2f}% (${mean_live_dollar:,.2f})",
             Colors.BRIGHT_CYAN,
         ),
         (
@@ -932,84 +940,93 @@ def print_pl_breakdown(results: dict) -> None:
     box_width = 80
     lines = []
     
+    def format_line(val: float, pct: float, count: int, avg: float, description: str) -> str:
+        """Format a breakdown line with colored dollar amount, count, and average."""
+        dollar_color = Colors.BRIGHT_GREEN if val >= 0 else Colors.BRIGHT_RED
+        dollar_str = f"{dollar_color}${val:,.2f}{Colors.RESET}"
+        count_str = f" (N={count})" if count > 0 else ""
+        avg_str = f" avg=${avg:,.2f}" if count > 0 else ""
+        return f"{dollar_str} ({pct:.1f}%) diff was due to {description}{count_str}{avg_str}"
+    
     # Over trading
     over_trading = breakdown.get("over_trading", {})
     over_trading_val = over_trading.get("value", 0)
     over_trading_pct = over_trading.get("percentage", 0)
+    over_trading_count = over_trading.get("count", 0)
+    over_trading_avg = over_trading.get("average", 0)
     if abs(over_trading_val) > 0.01:
-        color = Colors.BRIGHT_RED if over_trading_val < 0 else Colors.BRIGHT_GREEN
-        lines.append((
-            f"${over_trading_val:,.2f} ({over_trading_pct:.1f}%) diff was due to over trading",
-            "",
-            color,
+        lines.append(format_line(
+            over_trading_val, over_trading_pct, over_trading_count, over_trading_avg, "over trading"
         ))
     
     # Missed trades
     missed_trades = breakdown.get("missed_trades", {})
     missed_trades_val = missed_trades.get("value", 0)
     missed_trades_pct = missed_trades.get("percentage", 0)
+    missed_trades_count = missed_trades.get("count", 0)
+    missed_trades_avg = missed_trades.get("average", 0)
     if abs(missed_trades_val) > 0.01:
-        color = Colors.BRIGHT_RED if missed_trades_val < 0 else Colors.BRIGHT_GREEN
-        lines.append((
-            f"${missed_trades_val:,.2f} ({missed_trades_pct:.1f}%) diff was due to missed trades",
-            "",
-            color,
+        lines.append(format_line(
+            missed_trades_val, missed_trades_pct, missed_trades_count, missed_trades_avg, "missed trades"
         ))
     
     # Entry slippage
     entry_slippage = breakdown.get("entry_slippage", {})
     entry_slippage_val = entry_slippage.get("value", 0)
     entry_slippage_pct = entry_slippage.get("percentage", 0)
+    entry_slippage_count = entry_slippage.get("count", 0)
+    entry_slippage_avg = entry_slippage.get("average", 0)
     if abs(entry_slippage_val) > 0.01:
-        color = Colors.BRIGHT_RED if entry_slippage_val < 0 else Colors.BRIGHT_GREEN
-        lines.append((
-            f"${entry_slippage_val:,.2f} ({entry_slippage_pct:.1f}%) diff was due to entry slippage",
-            "",
-            color,
+        lines.append(format_line(
+            entry_slippage_val, entry_slippage_pct, entry_slippage_count, entry_slippage_avg, "entry slippage"
         ))
     
     # Exit slippage
     exit_slippage = breakdown.get("exit_slippage", {})
     exit_slippage_val = exit_slippage.get("value", 0)
     exit_slippage_pct = exit_slippage.get("percentage", 0)
+    exit_slippage_count = exit_slippage.get("count", 0)
+    exit_slippage_avg = exit_slippage.get("average", 0)
     if abs(exit_slippage_val) > 0.01:
-        color = Colors.BRIGHT_RED if exit_slippage_val < 0 else Colors.BRIGHT_GREEN
-        lines.append((
-            f"${exit_slippage_val:,.2f} ({exit_slippage_pct:.1f}%) diff was due to exit slippage",
-            "",
-            color,
+        lines.append(format_line(
+            exit_slippage_val, exit_slippage_pct, exit_slippage_count, exit_slippage_avg, "exit slippage"
+        ))
+    
+    # Different outcome
+    different_outcome = breakdown.get("different_outcome", {})
+    different_outcome_val = different_outcome.get("value", 0)
+    different_outcome_pct = different_outcome.get("percentage", 0)
+    different_outcome_count = different_outcome.get("count", 0)
+    different_outcome_avg = different_outcome.get("average", 0)
+    if abs(different_outcome_val) > 0.01:
+        lines.append(format_line(
+            different_outcome_val, different_outcome_pct, different_outcome_count, different_outcome_avg, "different outcome"
         ))
     
     # Under-allocation
     under_allocation = breakdown.get("under_allocation", {})
     under_allocation_val = under_allocation.get("value", 0)
     under_allocation_pct = under_allocation.get("percentage", 0)
+    under_allocation_count = under_allocation.get("count", 0)
+    under_allocation_avg = under_allocation.get("average", 0)
     if abs(under_allocation_val) > 0.01:
-        color = Colors.BRIGHT_RED if under_allocation_val < 0 else Colors.BRIGHT_GREEN
-        lines.append((
-            f"${under_allocation_val:,.2f} ({under_allocation_pct:.1f}%) diff was due to under-allocation",
-            "",
-            color,
+        lines.append(format_line(
+            under_allocation_val, under_allocation_pct, under_allocation_count, under_allocation_avg, "under-allocation"
         ))
     
     # Over-allocation
     over_allocation = breakdown.get("over_allocation", {})
     over_allocation_val = over_allocation.get("value", 0)
     over_allocation_pct = over_allocation.get("percentage", 0)
+    over_allocation_count = over_allocation.get("count", 0)
+    over_allocation_avg = over_allocation.get("average", 0)
     if abs(over_allocation_val) > 0.01:
-        color = Colors.BRIGHT_RED if over_allocation_val < 0 else Colors.BRIGHT_GREEN
-        lines.append((
-            f"${over_allocation_val:,.2f} ({over_allocation_pct:.1f}%) diff was due to over-allocation",
-            "",
-            color,
+        lines.append(format_line(
+            over_allocation_val, over_allocation_pct, over_allocation_count, over_allocation_avg, "over-allocation"
         ))
     
     if not lines:
-        lines.append((
-            "No significant P/L differences to attribute",
-            "",
-            Colors.DIM,
-        ))
+        lines.append("No significant P/L differences to attribute")
     
     print_box(box_width, "P/L DIFFERENCE BREAKDOWN", lines)
 
