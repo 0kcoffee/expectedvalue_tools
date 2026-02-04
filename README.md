@@ -78,6 +78,7 @@ Options:
   --target-power, -p FLOAT    Target power level (0-1, default: 0.95)
   --simulations, -s INTEGER   Number of Monte Carlo simulations (default: 10000)
   --output-dir, -o PATH       Directory to save histogram images
+  --html-report               Generate HTML report (saved to reports_output/)
 ```
 
 **Example**:
@@ -114,6 +115,7 @@ Options:
   --live-file, -l PATH      Path to live trading data file (required)
   --window-minutes, -w INT   Time window in minutes for matching trades (default: 10)
   --output-dir, -o PATH     Directory to save histogram images
+  --html-report               Generate HTML report (saved to reports_output/)
 ```
 
 **Example**:
@@ -166,6 +168,7 @@ Options:
   --portfolio-size, -p FLOAT   Initial portfolio size (default: 100000)
   --allocation, -a FLOAT        Desired allocation percentage (default: 1.0)
   --output-dir, -o PATH        Directory to save outputs
+  --html-report               Generate HTML report (saved to reports_output/)
 ```
 
 **Example**:
@@ -219,6 +222,7 @@ Options:
   --max-score, -m FLOAT        Maximum acceptable overfitting score (default: 12.0, min: 1.0)
   --tail-direction, -d STR     Which tail events to analyze: 'all', 'positive', or 'negative' (default: 'all')
   --output-dir, -o PATH        Directory to save outputs
+  --html-report               Generate HTML report (saved to reports_output/)
 ```
 
 **Example**:
@@ -231,6 +235,79 @@ evtools test tail_overfitting data.csv --tail-direction positive --tail-percenta
 - **Passing Test** (overfitting_score < max_score): Strategy has more consistent performance, less dependent on rare extreme events
 - **Failing Test** (overfitting_score >= max_score): Strategy relies heavily on rare extreme events, may be overfitted to specific historical conditions
 - **Baseline Analysis**: If baseline performance (without tail events) is still profitable, the strategy is more robust. If baseline is unprofitable, the strategy depends heavily on catching extreme moves.
+
+### Portfolio Track Analysis (`track`)
+
+**Description**: Analyzes live trading portfolio performance including equity curve, CAGR, Sharpe/Sortino ratios, drawdown analysis, and strategy-level statistics with calendar visualizations.
+
+**Logic**:
+1. **Equity Curve Calculation**: Builds equity curve from starting capital and cumulative P/L
+   - Sorts trades by datetime
+   - Starts with specified starting capital
+   - Accumulates P/L for each trade to build equity curve over time
+2. **Portfolio Metrics**: Calculates comprehensive performance metrics
+   - Net P/L: Sum of all P/L values
+   - Extra Fees: Optional monthly fees (e.g., automation costs) - calculated based on months with trades
+   - Net P/L After Fees: Net P/L minus total fees
+   - CAGR: Compound Annual Growth Rate from first to last trade
+   - Sharpe Ratio: Risk-adjusted return using standard deviation (annualized)
+   - Sortino Ratio: Risk-adjusted return using downside deviation only (annualized)
+   - Total Premium: Sum of all premium collected
+   - PCR (Premium Capture Rate): Net P/L divided by Total Premium
+   - MAR: CAGR divided by Max Drawdown
+3. **Drawdown Analysis**: Comprehensive drawdown metrics from equity curve
+   - Max Drawdown: Largest drop from peak (dollars and percentage)
+   - Longest/Shortest Drawdown: Periods with dates, lengths, and depths
+   - Average Drawdown Length and Depth
+   - Current Drawdown status
+4. **Strategy Statistics**: Per-strategy analysis table
+   - Number of trades, Net P/L, Average P/L per contract/trade
+   - Average Win/Loss per contract (separate calculations)
+   - Win rate, PCR (strategy-level)
+   - Last trade date and days since (color-coded: yellow=recent, red=old)
+   - Sorted by most recent to oldest
+5. **Calendar Visualizations**: Weekly and monthly profitability calendars
+   - Green = profitable period, Red = losing period
+
+**Key Metrics**:
+- **Net P/L**: Total profit/loss across all trades
+- **Extra Fees**: Monthly fees (if specified) - total calculated based on months with trades
+- **Net P/L After Fees**: Net P/L minus total fees
+- **CAGR**: Compound Annual Growth Rate
+- **Max Drawdown**: Largest drop from peak (dollars and %)
+- **MAR**: CAGR / Max Drawdown ratio
+- **Sharpe Ratio**: Risk-adjusted return metric (annualized)
+- **Sortino Ratio**: Downside risk-adjusted return metric (annualized)
+- **Total Premium**: Sum of all premium collected
+- **PCR**: Premium Capture Rate (Net P/L / Total Premium)
+- **Drawdown Statistics**: Longest, shortest, average lengths and depths
+- **Current Drawdown**: Status of current drawdown if in one
+- **Strategy Table**: Comprehensive per-strategy statistics
+
+**Usage**:
+```bash
+evtools test track <file> [OPTIONS]
+
+Options:
+  --starting-capital, -c FLOAT   Starting capital for equity curve calculation (default: 100000)
+  --extra-fees, -f FLOAT         Monthly extra fees (e.g., automation costs) (default: 0.0)
+  --output-dir, -o PATH          Directory to save outputs
+  --html-report               Generate HTML report (saved to reports_output/)
+```
+
+**Example**:
+```bash
+evtools test track example_data/oo/live/portfolio-track.csv --starting-capital 100000
+evtools test track portfolio-track.csv -c 50000 -f 150 -o ./output
+```
+
+**Output Includes**:
+- Portfolio-level metrics box (Net P/L, CAGR, Max DD, MAR, Sharpe, Sortino, Total Premium, PCR)
+- Equity curve chart (with drawdown overlay)
+- ASCII equity curve and drawdown visualizations
+- Drawdown analysis box (max, longest, shortest, average, current)
+- Strategy statistics table (color-coded by recency)
+- Weekly and monthly profitability calendars
 
 ## Data Format Support
 
@@ -278,7 +355,11 @@ evtools test <test_name> <file_path> [OPTIONS]
 - `--tail-percentage, -t`: Percentage of trades to consider as tail events (default: 1.0) - for `tail_overfitting` test
 - `--max-score, -m`: Maximum acceptable overfitting score (default: 12.0) - for `tail_overfitting` test
 - `--tail-direction, -d`: Which tail events to analyze: 'all', 'positive', or 'negative' (default: 'all') - for `tail_overfitting` test
+- `--starting-capital, -c`: Starting capital for equity curve calculation (default: 100000) - for `track` test
+- `--extra-fees, -f`: Monthly extra fees (e.g., automation costs) (default: 0.0) - for `track` test
 - `--output-dir, -o`: Directory to save histogram images
+- `--html-report`: Generate HTML report (saved to reports_output/)
+- `--html-report`: Generate HTML report (saved to reports_output/)
 
 #### `list-tests`
 
@@ -347,6 +428,17 @@ evtools test tail_overfitting data.csv \
   --tail-direction positive \
   --tail-percentage 2.0 \
   --max-score 10.0
+```
+
+### Portfolio Track Analysis
+
+Analyze live trading portfolio performance:
+
+```bash
+evtools test track example_data/oo/live/portfolio-track.csv \
+  --starting-capital 100000 \
+  --extra-fees 150 \
+  --output-dir ./output
 ```
 
 ## Architecture

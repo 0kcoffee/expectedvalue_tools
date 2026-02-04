@@ -26,6 +26,18 @@ class TradeEnricher(BaseEnricher):
         # Create a copy to avoid modifying original
         df = data.copy()
 
+        # Detect trade type (debit vs credit) from Original Premium Sign
+        # This column is added by the normalizer before converting premium to absolute values
+        if "Original Premium Sign" in df.columns:
+            # Credit trades: Original Premium Sign >= 0 (positive or zero)
+            # Debit trades: Original Premium Sign < 0 (negative)
+            df["Trade Type"] = df["Original Premium Sign"].apply(
+                lambda x: "credit" if x >= 0 else "debit"
+            )
+        else:
+            # Default to credit if Original Premium Sign is missing
+            df["Trade Type"] = "credit"
+
         # Calculate win rate if P/L per Contract exists
         if "P/L per Contract" in df.columns:
             if "Win Rate" not in df.columns:

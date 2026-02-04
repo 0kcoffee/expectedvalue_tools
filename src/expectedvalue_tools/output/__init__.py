@@ -6,7 +6,8 @@ from .formatters import (
     print_section_box,
     print_progress_bar,
 )
-from .visualizers import create_histograms, create_drawdown_chart
+from .visualizers import create_histograms, create_drawdown_chart, create_track_chart
+from .html_reporter import HTMLReporter
 
 __all__ = [
     "print_ascii_distribution",
@@ -15,4 +16,6 @@ __all__ = [
     "print_progress_bar",
     "create_histograms",
     "create_drawdown_chart",
+    "create_track_chart",
+    "HTMLReporter",
 ]

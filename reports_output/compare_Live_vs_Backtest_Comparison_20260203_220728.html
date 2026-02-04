@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Report - compare</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f5f5f5;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background-color: white;
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+                border-radius: 12px;
+                border: 1px solid #e5e7eb;
+            }
+
+            header {
+                background-color: #ffffff;
+                border-bottom: 1px solid #e5e7eb;
+                padding: 32px 30px;
+                text-align: center;
+            }
+
+            .logo-container {
+                margin-bottom: 20px;
+            }
+
+            .logo-container img {
+                max-height: 80px;
+                max-width: 300px;
+            }
+
+            header h1 {
+                font-size: 2em;
+                margin-bottom: 10px;
+                font-weight: 600;
+                color: #3d15e5;
+            }
+
+            header .subtitle {
+                font-size: 1.1em;
+                color: #6c757d;
+            }
+
+            .metadata {
+                background-color: #fafafa;
+                padding: 24px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+
+            .metadata-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+            }
+
+            .metadata-item {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .metadata-label {
+                font-size: 0.85em;
+                color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }
+
+            .metadata-value {
+                font-size: 1.1em;
+                font-weight: 600;
+                color: #212529;
+            }
+
+            main {
+                padding: 30px;
+                overflow-x: visible;
+            }
+
+            .section {
+                margin-bottom: 40px;
+            }
+
+            .section-title {
+                font-size: 1.375rem;
+                font-weight: 600;
+                color: #111827;
+                margin-bottom: 24px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+
+            .section-content {
+                margin-top: 15px;
+            }
+
+            .statistics-box {
+                background-color: #fafafa;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 24px;
+                margin: 20px 0;
+            }
+
+            .stat-line {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 0;
+                border-bottom: 1px solid #f3f4f6;
+            }
+
+            .stat-line:last-child {
+                border-bottom: none;
+            }
+
+            .stat-label {
+                font-weight: 500;
+                color: #6b7280;
+                font-size: 0.9375rem;
+            }
+
+            .stat-value {
+                font-weight: 600;
+                font-size: 1rem;
+            }
+
+            .value-default {
+                color: #212529;
+            }
+
+            .value-positive {
+                color: #28a745;
+            }
+
+            .value-negative {
+                color: #dc3545;
+            }
+
+            .value-warning {
+                color: #ffc107;
+            }
+
+            .value-info {
+                color: #17a2b8;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+                margin: 24px 0;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 8px;
+                border: 1px solid #e8e8e8;
+                background-color: white;
+                position: relative;
+            }
+            
+            .table-fullscreen-btn {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background-color: #3d15e5;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 0.75rem;
+                cursor: pointer;
+                z-index: 10;
+                opacity: 0.8;
+                transition: opacity 0.2s;
+            }
+            
+            .table-fullscreen-btn:hover {
+                opacity: 1;
+            }
+            
+            .table-fullscreen-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.9);
+                z-index: 9999;
+                padding: 20px;
+                overflow: auto;
+            }
+            
+            .table-fullscreen-overlay.active {
+                display: block;
+            }
+            
+            .table-fullscreen-content {
+                max-width: 95%;
+                margin: 0 auto;
+                background-color: white;
+                border-radius: 8px;
+                padding: 20px;
+                position: relative;
+            }
+            
+            .table-fullscreen-close {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: #3d15e5;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 0.875rem;
+                cursor: pointer;
+                z-index: 10;
+            }
+            
+            .table-fullscreen-close:hover {
+                background-color: #2d0fb8;
+            }
+
+            .data-table {
+                width: 100%;
+                min-width: 100%;
+                border-collapse: collapse;
+                font-size: 0.875rem;
+                background-color: white;
+                border: none !important;
+            }
+            
+            /* Ensure no black borders anywhere in tables */
+            .data-table,
+            .data-table th,
+            .data-table td,
+            .data-table tr {
+                border-color: #e8e8e8 !important;
+            }
+            
+            /* Override any default browser table styling */
+            table.data-table {
+                border: none !important;
+            }
+            
+            table.data-table * {
+                border-color: #e8e8e8 !important;
+            }
+
+            .data-table thead {
+                background-color: #f9fafb;
+                border-bottom: 1px solid #e8e8e8 !important;
+            }
+
+            .data-table thead tr {
+                background-color: #f9fafb;
+            }
+
+            .data-table th {
+                padding: 0.75rem 0.875rem;
+                text-align: left;
+                font-weight: 600;
+                font-size: 0.6875rem;
+                letter-spacing: 0.025em;
+                text-transform: uppercase;
+                color: #6b7280;
+                border: none !important;
+                border-bottom: 1px solid #e8e8e8 !important;
+            }
+
+            .data-table tbody tr {
+                border: none !important;
+                border-bottom: 1px solid #f0f0f0 !important;
+                transition: background-color 0.1s ease-in-out;
+            }
+
+            .data-table tbody tr:last-child {
+                border-bottom: none !important;
+            }
+
+            .data-table tbody tr:hover {
+                background-color: #f9fafb;
+            }
+
+            .data-table td {
+                padding: 0.875rem 1rem;
+                color: #111827;
+                font-size: 0.875rem;
+                border: none !important;
+                border-bottom: 1px solid #f0f0f0 !important;
+                white-space: nowrap;
+            }
+
+            .data-table tbody tr:nth-child(even) {
+                background-color: #fafafa;
+            }
+
+            .data-table tbody tr:nth-child(even):hover {
+                background-color: #f5f5f5;
+            }
+
+            .chart-image {
+                max-width: 100%;
+                height: auto;
+                display: block;
+                margin: 20px auto;
+                border-radius: 6px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+            .ascii-visualization {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                padding: 20px;
+                border-radius: 6px;
+                font-family: 'Courier New', monospace;
+                font-size: 0.85em;
+                line-height: 1.4;
+                overflow-x: auto;
+                white-space: pre;
+            }
+
+            footer {
+                background-color: #fafafa;
+                padding: 24px;
+                text-align: center;
+                color: #6b7280;
+                font-size: 0.875rem;
+                border-top: 1px solid #e5e7eb;
+            }
+
+            .disclaimer {
+                margin-top: 15px;
+                padding-top: 15px;
+                border-top: 1px solid #dee2e6;
+                font-style: italic;
+            }
+
+            @media print {
+                body {
+                    background-color: white;
+                    padding: 0;
+                }
+
+                .container {
+                    box-shadow: none;
+                }
+
+                .section {
+                    page-break-inside: avoid;
+                }
+            }
+
+            @media (max-width: 768px) {
+                body {
+                    padding: 10px;
+                }
+
+                header h1 {
+                    font-size: 1.5em;
+                }
+
+                .metadata-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .data-table {
+                    font-size: 0.8em;
+                }
+
+                .data-table th,
+                .data-table td {
+                    padding: 8px;
+                }
+            }
+        </style>
+        
+</head>
+<body>
+    <div class="container">
+        
+        <header>
+            <div class="logo-container"><img src="data:image/png;base64,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" alt="Logo"></div>
+            <h1>Test Report: compare</h1>
+            <div class="subtitle">Live vs Backtest Comparison</div>
+        </header>
+        
+        
+        <div class="metadata">
+            <div class="metadata-grid">
+                <div class="metadata-item"><span class="metadata-label">Test</span><span class="metadata-value">compare</span></div><div class="metadata-item"><span class="metadata-label">Strategy</span><span class="metadata-value">Live vs Backtest Comparison</span></div><div class="metadata-item"><span class="metadata-label">Generated</span><span class="metadata-value">2026-02-03 22:07:28</span></div><div class="metadata-item"><span class="metadata-label">Window Minutes</span><span class="metadata-value">10</span></div><div class="metadata-item"><span class="metadata-label">Starting Portfolio Size</span><span class="metadata-value">75000.0</span></div><div class="metadata-item"><span class="metadata-label">Source Of Truth</span><span class="metadata-value">live</span></div>
+            </div>
+        </div>
+        
+        <main>
+            
+            <div class="section">
+                <h2 class="section-title">Comparison Summary</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">Overall P/L Difference (Live - Backtest):</span> <span class="stat-value value-positive">$2,402.12</span></div>
+<div class="stat-line"><span class="stat-label">Total Backtest P/L:</span> <span class="stat-value value-info">$-4,267.00</span></div>
+<div class="stat-line"><span class="stat-label">Total Live P/L:</span> <span class="stat-value value-info">$-1,864.88</span></div></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Matching Statistics</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">Backtest Trades:</span> <span class="stat-value value-info">20</span></div>
+<div class="stat-line"><span class="stat-label">Live Trades:</span> <span class="stat-value value-info">20</span></div>
+<div class="stat-line"><span class="stat-label">Matched Trades:</span> <span class="stat-value value-positive">19</span></div>
+<div class="stat-line"><span class="stat-label">Fully Matched Trades:</span> <span class="stat-value value-positive">17</span></div>
+<div class="stat-line"><span class="stat-label">Match Rate (Backtest):</span> <span class="stat-value value-positive">95.0%</span></div>
+<div class="stat-line"><span class="stat-label">Match Rate (Live):</span> <span class="stat-value value-positive">95.0%</span></div>
+<div class="stat-line"><span class="stat-label">Time Window:</span> <span class="stat-value value-default">±10 minutes</span></div></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Slippage Analysis (Fully Matched Trades)</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">Fully Matched Trades:</span> <span class="stat-value value-info">17</span></div>
+<div class="stat-line"><span class="stat-label">Mean P/L Difference (Live - Backtest, per contract):</span> <span class="stat-value value-positive">$26.84</span></div>
+<div class="stat-line"><span class="stat-label">Median P/L Difference (per contract):</span> <span class="stat-value value-positive">$9.24</span></div>
+<div class="stat-line"><span class="stat-label">Std Dev P/L Difference:</span> <span class="stat-value value-warning">$106.38</span></div>
+<div class="stat-line"><span class="stat-label">Mean Entry Difference (Premium Diff):</span> <span class="stat-value value-negative">$-4.71</span></div>
+<div class="stat-line"><span class="stat-label">Median Entry Difference (Premium Diff):</span> <span class="stat-value value-negative">$-5.00</span></div>
+<div class="stat-line"><span class="stat-label">Std Dev Entry Difference:</span> <span class="stat-value value-warning">$11.94</span></div>
+<div class="stat-line"><span class="stat-label">Mean Exit Difference (Close Cost Diff):</span> <span class="stat-value value-positive">$37.06</span></div>
+<div class="stat-line"><span class="stat-label">Median Exit Difference (Close Cost Diff):</span> <span class="stat-value value-positive">$5.00</span></div>
+<div class="stat-line"><span class="stat-label">Std Dev Exit Difference:</span> <span class="stat-value value-warning">$104.25</span></div>
+<div class="stat-line"><span class="stat-label">Backtest Win Rate:</span> <span class="stat-value value-info">41.2%</span></div>
+<div class="stat-line"><span class="stat-label">Live Win Rate:</span> <span class="stat-value value-info">41.2%</span></div></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Entry Difference Distribution (Premium Diff, Live - Backtest) - Fully Matched Trades Only</h2>
+                <div class="section-content">
+                    
+            <div id="plotly_chart_3" style="width:100%;height:350px;"></div>
+            <script>
+                var figure = {"data": [{"hovertemplate": "Value: %{x}<br>Frequency: %{y}<extra></extra>", "marker": {"color": "#3d15e5", "line": {"color": "#3d15e5", "width": 0.5}}, "name": "Frequency", "nbinsx": 30, "opacity": 0.7, "x": [-0.0, 15.0, 5.0, 15.0, -5.0, 5.0, -25.0, -10.0, -15.0, -0.0, -5.0, 10.0, -5.0, -15.0, -14.999999999999773, -10.0, -25.0], "type": "histogram"}], "layout": {"template": {"data": {"barpolar": [{"marker": {"line": {"color": "white", "width": 0.5}, "pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "barpolar"}], "bar": [{"error_x": {"color": "#2a3f5f"}, "error_y": {"color": "#2a3f5f"}, "marker": {"line": {"color": "white", "width": 0.5}, "pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "bar"}], "carpet": [{"aaxis": {"endlinecolor": "#2a3f5f", "gridcolor": "#C8D4E3", "linecolor": "#C8D4E3", "minorgridcolor": "#C8D4E3", "startlinecolor": "#2a3f5f"}, "baxis": {"endlinecolor": "#2a3f5f", "gridcolor": "#C8D4E3", "linecolor": "#C8D4E3", "minorgridcolor": "#C8D4E3", "startlinecolor": "#2a3f5f"}, "type": "carpet"}], "choropleth": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "choropleth"}], "contourcarpet": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "contourcarpet"}], "contour": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "contour"}], "heatmap": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "heatmap"}], "histogram2dcontour": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "histogram2dcontour"}], "histogram2d": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "histogram2d"}], "histogram": [{"marker": {"pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "histogram"}], "mesh3d": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "mesh3d"}], "parcoords": [{"line": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "parcoords"}], "pie": [{"automargin": true, "type": "pie"}], "scatter3d": [{"line": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatter3d"}], "scattercarpet": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattercarpet"}], "scattergeo": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattergeo"}], "scattergl": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattergl"}], "scattermapbox": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattermapbox"}], "scattermap": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattermap"}], "scatterpolargl": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterpolargl"}], "scatterpolar": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterpolar"}], "scatter": [{"fillpattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}, "type": "scatter"}], "scatterternary": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterternary"}], "surface": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "surface"}], "table": [{"cells": {"fill": {"color": "#EBF0F8"}, "line": {"color": "white"}}, "header": {"fill": {"color": "#C8D4E3"}, "line": {"color": "white"}}, "type": "table"}]}, "layout": {"annotationdefaults": {"arrowcolor": "#2a3f5f", "arrowhead": 0, "arrowwidth": 1}, "autotypenumbers": "strict", "coloraxis": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "colorscale": {"diverging": [[0, "#8e0152"], [0.1, "#c51b7d"], [0.2, "#de77ae"], [0.3, "#f1b6da"], [0.4, "#fde0ef"], [0.5, "#f7f7f7"], [0.6, "#e6f5d0"], [0.7, "#b8e186"], [0.8, "#7fbc41"], [0.9, "#4d9221"], [1, "#276419"]], "sequential": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "sequentialminus": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]]}, "colorway": ["#636efa", "#EF553B", "#00cc96", "#ab63fa", "#FFA15A", "#19d3f3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52"], "font": {"color": "#2a3f5f"}, "geo": {"bgcolor": "white", "lakecolor": "white", "landcolor": "white", "showlakes": true, "showland": true, "subunitcolor": "#C8D4E3"}, "hoverlabel": {"align": "left"}, "hovermode": "closest", "mapbox": {"style": "light"}, "paper_bgcolor": "white", "plot_bgcolor": "white", "polar": {"angularaxis": {"gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": ""}, "bgcolor": "white", "radialaxis": {"gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": ""}}, "scene": {"xaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}, "yaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}, "zaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}}, "shapedefaults": {"line": {"color": "#2a3f5f"}}, "ternary": {"aaxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}, "baxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}, "bgcolor": "white", "caxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}}, "title": {"x": 0.05}, "xaxis": {"automargin": true, "gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": "", "title": {"standoff": 15}, "zerolinecolor": "#EBF0F8", "zerolinewidth": 2}, "yaxis": {"automargin": true, "gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": "", "title": {"standoff": 15}, "zerolinecolor": "#EBF0F8", "zerolinewidth": 2}}}, "shapes": [{"line": {"color": "#3d15e5", "dash": "dash", "width": 2}, "type": "line", "x0": -4.705882352941163, "x1": -4.705882352941163, "xref": "x", "y0": 0, "y1": 1, "yref": "y domain"}, {"line": {"color": "#999999", "dash": "solid", "width": 1}, "opacity": 0.4, "type": "line", "x0": 0, "x1": 0, "xref": "x", "y0": 0, "y1": 1, "yref": "y domain"}], "annotations": [{"showarrow": false, "text": "Mean: $-4.71<br>Std: $11.94<br>N: 17", "x": 0.02, "xanchor": "left", "xref": "paper", "y": 0.98, "yanchor": "top", "yref": "paper", "font": {"size": 11}, "bgcolor": "rgba(255, 255, 255, 0.8)", "bordercolor": "rgba(61, 21, 229, 0.2)", "borderwidth": 1}, {"showarrow": false, "text": "Mean: $-4.71<br>Std: $11.94<br>N: 17", "x": 0.02, "xanchor": "left", "xref": "paper", "y": 0.98, "yanchor": "top", "yref": "paper", "font": {"size": 11}, "bgcolor": "rgba(255, 255, 255, 0.8)", "bordercolor": "rgba(61, 21, 229, 0.2)", "borderwidth": 1}], "margin": {"l": 50, "r": 50, "t": 50, "b": 50}, "title": {"text": "Entry Difference Distribution (Premium Diff, Live - Backtest) - Fully Matched Trades Only"}, "xaxis": {"title": {"text": "Value ($)"}}, "yaxis": {"title": {"text": "Frequency"}}, "showlegend": true, "hovermode": "x unified", "height": 350}};
+                Plotly.newPlot('plotly_chart_3', figure.data, figure.layout, figure.config || {});
+            </script>
+            
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Exit Difference Distribution (Close Cost Diff, Live - Backtest) - Fully Matched Trades Only</h2>
+                <div class="section-content">
+                    
+            <div id="plotly_chart_4" style="width:100%;height:350px;"></div>
+            <script>
+                var figure = {"data": [{"hovertemplate": "Value: %{x}<br>Frequency: %{y}<extra></extra>", "marker": {"color": "#3d15e5", "line": {"color": "#3d15e5", "width": 0.5}}, "name": "Frequency", "nbinsx": 30, "opacity": 0.7, "x": [-20.0, -95.0, 395.0, 5.0, -5.0, -1.1368683772161603e-13, 5.0, 155.0, 50.0, 20.000000000000114, 65.0, 65.00000000000045, 50.0, -45.0, 5.0, 25.0, -45.0], "type": "histogram"}], "layout": {"template": {"data": {"barpolar": [{"marker": {"line": {"color": "white", "width": 0.5}, "pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "barpolar"}], "bar": [{"error_x": {"color": "#2a3f5f"}, "error_y": {"color": "#2a3f5f"}, "marker": {"line": {"color": "white", "width": 0.5}, "pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "bar"}], "carpet": [{"aaxis": {"endlinecolor": "#2a3f5f", "gridcolor": "#C8D4E3", "linecolor": "#C8D4E3", "minorgridcolor": "#C8D4E3", "startlinecolor": "#2a3f5f"}, "baxis": {"endlinecolor": "#2a3f5f", "gridcolor": "#C8D4E3", "linecolor": "#C8D4E3", "minorgridcolor": "#C8D4E3", "startlinecolor": "#2a3f5f"}, "type": "carpet"}], "choropleth": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "choropleth"}], "contourcarpet": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "contourcarpet"}], "contour": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "contour"}], "heatmap": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "heatmap"}], "histogram2dcontour": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "histogram2dcontour"}], "histogram2d": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "histogram2d"}], "histogram": [{"marker": {"pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "histogram"}], "mesh3d": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "mesh3d"}], "parcoords": [{"line": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "parcoords"}], "pie": [{"automargin": true, "type": "pie"}], "scatter3d": [{"line": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatter3d"}], "scattercarpet": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattercarpet"}], "scattergeo": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattergeo"}], "scattergl": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattergl"}], "scattermapbox": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattermapbox"}], "scattermap": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattermap"}], "scatterpolargl": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterpolargl"}], "scatterpolar": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterpolar"}], "scatter": [{"fillpattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}, "type": "scatter"}], "scatterternary": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterternary"}], "surface": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "surface"}], "table": [{"cells": {"fill": {"color": "#EBF0F8"}, "line": {"color": "white"}}, "header": {"fill": {"color": "#C8D4E3"}, "line": {"color": "white"}}, "type": "table"}]}, "layout": {"annotationdefaults": {"arrowcolor": "#2a3f5f", "arrowhead": 0, "arrowwidth": 1}, "autotypenumbers": "strict", "coloraxis": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "colorscale": {"diverging": [[0, "#8e0152"], [0.1, "#c51b7d"], [0.2, "#de77ae"], [0.3, "#f1b6da"], [0.4, "#fde0ef"], [0.5, "#f7f7f7"], [0.6, "#e6f5d0"], [0.7, "#b8e186"], [0.8, "#7fbc41"], [0.9, "#4d9221"], [1, "#276419"]], "sequential": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "sequentialminus": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]]}, "colorway": ["#636efa", "#EF553B", "#00cc96", "#ab63fa", "#FFA15A", "#19d3f3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52"], "font": {"color": "#2a3f5f"}, "geo": {"bgcolor": "white", "lakecolor": "white", "landcolor": "white", "showlakes": true, "showland": true, "subunitcolor": "#C8D4E3"}, "hoverlabel": {"align": "left"}, "hovermode": "closest", "mapbox": {"style": "light"}, "paper_bgcolor": "white", "plot_bgcolor": "white", "polar": {"angularaxis": {"gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": ""}, "bgcolor": "white", "radialaxis": {"gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": ""}}, "scene": {"xaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}, "yaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}, "zaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}}, "shapedefaults": {"line": {"color": "#2a3f5f"}}, "ternary": {"aaxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}, "baxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}, "bgcolor": "white", "caxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}}, "title": {"x": 0.05}, "xaxis": {"automargin": true, "gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": "", "title": {"standoff": 15}, "zerolinecolor": "#EBF0F8", "zerolinewidth": 2}, "yaxis": {"automargin": true, "gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": "", "title": {"standoff": 15}, "zerolinecolor": "#EBF0F8", "zerolinewidth": 2}}}, "shapes": [{"line": {"color": "#3d15e5", "dash": "dash", "width": 2}, "type": "line", "x0": 37.05882352941179, "x1": 37.05882352941179, "xref": "x", "y0": 0, "y1": 1, "yref": "y domain"}, {"line": {"color": "#999999", "dash": "solid", "width": 1}, "opacity": 0.4, "type": "line", "x0": 0, "x1": 0, "xref": "x", "y0": 0, "y1": 1, "yref": "y domain"}], "annotations": [{"showarrow": false, "text": "Mean: $37.06<br>Std: $104.25<br>N: 17", "x": 0.02, "xanchor": "left", "xref": "paper", "y": 0.98, "yanchor": "top", "yref": "paper", "font": {"size": 11}, "bgcolor": "rgba(255, 255, 255, 0.8)", "bordercolor": "rgba(61, 21, 229, 0.2)", "borderwidth": 1}, {"showarrow": false, "text": "Mean: $37.06<br>Std: $104.25<br>N: 17", "x": 0.02, "xanchor": "left", "xref": "paper", "y": 0.98, "yanchor": "top", "yref": "paper", "font": {"size": 11}, "bgcolor": "rgba(255, 255, 255, 0.8)", "bordercolor": "rgba(61, 21, 229, 0.2)", "borderwidth": 1}], "margin": {"l": 50, "r": 50, "t": 50, "b": 50}, "title": {"text": "Exit Difference Distribution (Close Cost Diff, Live - Backtest) - Fully Matched Trades Only"}, "xaxis": {"title": {"text": "Value ($)"}}, "yaxis": {"title": {"text": "Frequency"}}, "showlegend": true, "hovermode": "x unified", "height": 350}};
+                Plotly.newPlot('plotly_chart_4', figure.data, figure.layout, figure.config || {});
+            </script>
+            
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">P/L Difference Distribution (Live - Backtest, per contract) - Fully Matched Trades Only</h2>
+                <div class="section-content">
+                    
+            <div id="plotly_chart_5" style="width:100%;height:350px;"></div>
+            <script>
+                var figure = {"data": [{"hovertemplate": "Value: %{x}<br>Frequency: %{y}<extra></extra>", "marker": {"color": "#3d15e5", "line": {"color": "#3d15e5", "width": 0.5}}, "name": "Frequency", "nbinsx": 30, "opacity": 0.7, "x": [-25.67000000000013, -85.67000000000007, 394.33, 14.3299999999998, -14.929999999999964, -0.670000000000087, -25.020000000000195, 139.24000000000007, 29.420000000000073, 14.330000000000098, 54.41999999999996, 69.24000000000024, 39.979999999999905, -64.92999999999995, -15.670000000000016, 9.240000000000009, -75.67000000000019], "type": "histogram"}], "layout": {"template": {"data": {"barpolar": [{"marker": {"line": {"color": "white", "width": 0.5}, "pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "barpolar"}], "bar": [{"error_x": {"color": "#2a3f5f"}, "error_y": {"color": "#2a3f5f"}, "marker": {"line": {"color": "white", "width": 0.5}, "pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "bar"}], "carpet": [{"aaxis": {"endlinecolor": "#2a3f5f", "gridcolor": "#C8D4E3", "linecolor": "#C8D4E3", "minorgridcolor": "#C8D4E3", "startlinecolor": "#2a3f5f"}, "baxis": {"endlinecolor": "#2a3f5f", "gridcolor": "#C8D4E3", "linecolor": "#C8D4E3", "minorgridcolor": "#C8D4E3", "startlinecolor": "#2a3f5f"}, "type": "carpet"}], "choropleth": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "choropleth"}], "contourcarpet": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "contourcarpet"}], "contour": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "contour"}], "heatmap": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "heatmap"}], "histogram2dcontour": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "histogram2dcontour"}], "histogram2d": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "histogram2d"}], "histogram": [{"marker": {"pattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}}, "type": "histogram"}], "mesh3d": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "type": "mesh3d"}], "parcoords": [{"line": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "parcoords"}], "pie": [{"automargin": true, "type": "pie"}], "scatter3d": [{"line": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatter3d"}], "scattercarpet": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattercarpet"}], "scattergeo": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattergeo"}], "scattergl": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattergl"}], "scattermapbox": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattermapbox"}], "scattermap": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scattermap"}], "scatterpolargl": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterpolargl"}], "scatterpolar": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterpolar"}], "scatter": [{"fillpattern": {"fillmode": "overlay", "size": 10, "solidity": 0.2}, "type": "scatter"}], "scatterternary": [{"marker": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "type": "scatterternary"}], "surface": [{"colorbar": {"outlinewidth": 0, "ticks": ""}, "colorscale": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "type": "surface"}], "table": [{"cells": {"fill": {"color": "#EBF0F8"}, "line": {"color": "white"}}, "header": {"fill": {"color": "#C8D4E3"}, "line": {"color": "white"}}, "type": "table"}]}, "layout": {"annotationdefaults": {"arrowcolor": "#2a3f5f", "arrowhead": 0, "arrowwidth": 1}, "autotypenumbers": "strict", "coloraxis": {"colorbar": {"outlinewidth": 0, "ticks": ""}}, "colorscale": {"diverging": [[0, "#8e0152"], [0.1, "#c51b7d"], [0.2, "#de77ae"], [0.3, "#f1b6da"], [0.4, "#fde0ef"], [0.5, "#f7f7f7"], [0.6, "#e6f5d0"], [0.7, "#b8e186"], [0.8, "#7fbc41"], [0.9, "#4d9221"], [1, "#276419"]], "sequential": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]], "sequentialminus": [[0.0, "#0d0887"], [0.1111111111111111, "#46039f"], [0.2222222222222222, "#7201a8"], [0.3333333333333333, "#9c179e"], [0.4444444444444444, "#bd3786"], [0.5555555555555556, "#d8576b"], [0.6666666666666666, "#ed7953"], [0.7777777777777778, "#fb9f3a"], [0.8888888888888888, "#fdca26"], [1.0, "#f0f921"]]}, "colorway": ["#636efa", "#EF553B", "#00cc96", "#ab63fa", "#FFA15A", "#19d3f3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52"], "font": {"color": "#2a3f5f"}, "geo": {"bgcolor": "white", "lakecolor": "white", "landcolor": "white", "showlakes": true, "showland": true, "subunitcolor": "#C8D4E3"}, "hoverlabel": {"align": "left"}, "hovermode": "closest", "mapbox": {"style": "light"}, "paper_bgcolor": "white", "plot_bgcolor": "white", "polar": {"angularaxis": {"gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": ""}, "bgcolor": "white", "radialaxis": {"gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": ""}}, "scene": {"xaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}, "yaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}, "zaxis": {"backgroundcolor": "white", "gridcolor": "#DFE8F3", "gridwidth": 2, "linecolor": "#EBF0F8", "showbackground": true, "ticks": "", "zerolinecolor": "#EBF0F8"}}, "shapedefaults": {"line": {"color": "#2a3f5f"}}, "ternary": {"aaxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}, "baxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}, "bgcolor": "white", "caxis": {"gridcolor": "#DFE8F3", "linecolor": "#A2B1C6", "ticks": ""}}, "title": {"x": 0.05}, "xaxis": {"automargin": true, "gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": "", "title": {"standoff": 15}, "zerolinecolor": "#EBF0F8", "zerolinewidth": 2}, "yaxis": {"automargin": true, "gridcolor": "#EBF0F8", "linecolor": "#EBF0F8", "ticks": "", "title": {"standoff": 15}, "zerolinecolor": "#EBF0F8", "zerolinewidth": 2}}}, "shapes": [{"line": {"color": "#3d15e5", "dash": "dash", "width": 2}, "type": "line", "x0": 26.841176470588206, "x1": 26.841176470588206, "xref": "x", "y0": 0, "y1": 1, "yref": "y domain"}, {"line": {"color": "#999999", "dash": "solid", "width": 1}, "opacity": 0.4, "type": "line", "x0": 0, "x1": 0, "xref": "x", "y0": 0, "y1": 1, "yref": "y domain"}], "annotations": [{"showarrow": false, "text": "Mean: $26.84<br>Std: $106.38<br>N: 17", "x": 0.02, "xanchor": "left", "xref": "paper", "y": 0.98, "yanchor": "top", "yref": "paper", "font": {"size": 11}, "bgcolor": "rgba(255, 255, 255, 0.8)", "bordercolor": "rgba(61, 21, 229, 0.2)", "borderwidth": 1}, {"showarrow": false, "text": "Mean: $26.84<br>Std: $106.38<br>N: 17", "x": 0.02, "xanchor": "left", "xref": "paper", "y": 0.98, "yanchor": "top", "yref": "paper", "font": {"size": 11}, "bgcolor": "rgba(255, 255, 255, 0.8)", "bordercolor": "rgba(61, 21, 229, 0.2)", "borderwidth": 1}], "margin": {"l": 50, "r": 50, "t": 50, "b": 50}, "title": {"text": "P/L Difference Distribution (Live - Backtest, per contract) - Fully Matched Trades Only"}, "xaxis": {"title": {"text": "Value ($)"}}, "yaxis": {"title": {"text": "Frequency"}}, "showlegend": true, "hovermode": "x unified", "height": 350}};
+                Plotly.newPlot('plotly_chart_5', figure.data, figure.layout, figure.config || {});
+            </script>
+            
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Allocation Consistency Analysis</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">Mean Backtest Allocation:</span> <span class="stat-value value-info">2.99% ($2,241.15)</span></div>
+<div class="stat-line"><span class="stat-label">Std Dev Backtest Allocation:</span> <span class="stat-value value-warning">0.66%</span></div>
+<div class="stat-line"><span class="stat-label">Mean Live Allocation:</span> <span class="stat-value value-info">2.83% ($2,124.32)</span></div>
+<div class="stat-line"><span class="stat-label">Std Dev Live Allocation:</span> <span class="stat-value value-warning">0.85%</span></div>
+<div class="stat-line"><span class="stat-label">Starting Portfolio Size:</span> <span class="stat-value value-default">$75,000.00</span></div>
+<div class="stat-line"><span class="stat-label">Deviant Trades (>2 std dev from respective mean):</span> <span class="stat-value value-negative">2</span></div></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Matched Trades Comparison</h2>
+                <div class="section-content">
+                    
+            <div class="table-wrapper" id="table_a483aa90_wrapper">
+                <button class="table-fullscreen-btn" onclick="toggleTableFullscreen('table_a483aa90')">⛶ Full Screen</button>
+                <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Date</th>
+      <th>Time</th>
+      <th>Premium BT</th>
+      <th>Premium Live</th>
+      <th>Premium Diff</th>
+      <th>Close Cost BT</th>
+      <th>Close Cost Live</th>
+      <th>Close Cost Diff</th>
+      <th>P/L BT</th>
+      <th>P/L Live</th>
+      <th>P/L Diff</th>
+      <th>P/L Diff/C</th>
+      <th>Cont BT</th>
+      <th>Cont Live</th>
+      <th>Margin/Cont</th>
+      <th>Alloc BT</th>
+      <th>Alloc Live</th>
+      <th>Match</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2026-01-27</td>
+      <td>09:35:00</td>
+      <td>$2,960.00</td>
+      <td>$2,960.00</td>
+      <td><span class="value-positive">$0.00</span></td>
+      <td>3,270</td>
+      <td>$3,250.00</td>
+      <td><span class="value-negative">$-20.00</span></td>
+      <td><span class="value-positive">$306.00</span></td>
+      <td><span class="value-positive">$280.33</span></td>
+      <td><span class="value-negative">$-25.67</span></td>
+      <td><span class="value-negative">$-25.67</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,960.00</td>
+      <td>$3.95</td>
+      <td>$4.06</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2026-01-20</td>
+      <td>09:35:00</td>
+      <td>$2,340.00</td>
+      <td>$2,325.00</td>
+      <td><span class="value-positive">$-15.00</span></td>
+      <td>1,365</td>
+      <td>$1,270.00</td>
+      <td><span class="value-negative">$-95.00</span></td>
+      <td><span class="value-negative">$-979.00</span></td>
+      <td><span class="value-negative">$-1,064.67</span></td>
+      <td><span class="value-negative">$-85.67</span></td>
+      <td><span class="value-negative">$-85.67</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,340.00</td>
+      <td>$3.12</td>
+      <td>$3.17</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2026-01-13</td>
+      <td>09:35:00</td>
+      <td>$1,805.00</td>
+      <td>$1,800.00</td>
+      <td><span class="value-positive">$-5.00</span></td>
+      <td>1,045</td>
+      <td>$1,440.00</td>
+      <td><span class="value-positive">$395.00</span></td>
+      <td><span class="value-negative">$-1,528.00</span></td>
+      <td><span class="value-negative">$-369.67</span></td>
+      <td><span class="value-positive">$1,158.33</span></td>
+      <td><span class="value-positive">$394.33</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,805.00</td>
+      <td>$4.81</td>
+      <td>$2.43</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2026-01-06</td>
+      <td>09:35:00</td>
+      <td>$2,150.00</td>
+      <td>$2,135.00</td>
+      <td><span class="value-positive">$-15.00</span></td>
+      <td>2,040</td>
+      <td>$2,045.00</td>
+      <td><span class="value-positive">$5.00</span></td>
+      <td><span class="value-negative">$-114.00</span></td>
+      <td><span class="value-negative">$-99.67</span></td>
+      <td><span class="value-positive">$14.33</span></td>
+      <td><span class="value-positive">$14.33</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,150.00</td>
+      <td>$2.87</td>
+      <td>$2.89</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-30</td>
+      <td>09:35:00</td>
+      <td>$830.00</td>
+      <td>$835.00</td>
+      <td><span class="value-negative">$5.00</span></td>
+      <td>970</td>
+      <td>$965.00</td>
+      <td><span class="value-negative">$-5.00</span></td>
+      <td><span class="value-positive">$544.00</span></td>
+      <td><span class="value-positive">$121.07</span></td>
+      <td><span class="value-negative">$-422.93</span></td>
+      <td><span class="value-negative">$-14.93</span></td>
+      <td>4</td>
+      <td>1</td>
+      <td>$830.00</td>
+      <td>$4.43</td>
+      <td>$1.12</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-23</td>
+      <td>09:35:00</td>
+      <td>$775.00</td>
+      <td>$770.00</td>
+      <td><span class="value-positive">$-5.00</span></td>
+      <td>845</td>
+      <td>$845.00</td>
+      <td><span class="value-negative">$-0.00</span></td>
+      <td><span class="value-positive">$330.00</span></td>
+      <td><span class="value-positive">$65.33</span></td>
+      <td><span class="value-negative">$-264.67</span></td>
+      <td><span class="value-negative">$-0.67</span></td>
+      <td>5</td>
+      <td>1</td>
+      <td>$775.00</td>
+      <td>$5.17</td>
+      <td>$1.04</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-16</td>
+      <td>09:35:00</td>
+      <td>$2,635.00</td>
+      <td>$2,660.00</td>
+      <td><span class="value-negative">$25.00</span></td>
+      <td>2,565</td>
+      <td>$2,570.00</td>
+      <td><span class="value-positive">$5.00</span></td>
+      <td><span class="value-negative">$-74.00</span></td>
+      <td><span class="value-negative">$-99.02</span></td>
+      <td><span class="value-negative">$-25.02</span></td>
+      <td><span class="value-negative">$-25.02</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,635.00</td>
+      <td>$3.51</td>
+      <td>$3.55</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-09</td>
+      <td>09:35:00</td>
+      <td>$2,855.00</td>
+      <td>$2,865.00</td>
+      <td><span class="value-negative">$10.00</span></td>
+      <td>2,490</td>
+      <td>$2,645.00</td>
+      <td><span class="value-positive">$155.00</span></td>
+      <td><span class="value-negative">$-369.00</span></td>
+      <td><span class="value-negative">$-229.76</span></td>
+      <td><span class="value-positive">$139.24</span></td>
+      <td><span class="value-positive">$139.24</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,855.00</td>
+      <td>$3.81</td>
+      <td>$3.83</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-02</td>
+      <td>09:35:00</td>
+      <td>$2,110.00</td>
+      <td>$2,125.00</td>
+      <td><span class="value-negative">$15.00</span></td>
+      <td>1,805</td>
+      <td>$1,855.00</td>
+      <td><span class="value-positive">$50.00</span></td>
+      <td><span class="value-negative">$-309.00</span></td>
+      <td><span class="value-negative">$-279.58</span></td>
+      <td><span class="value-positive">$29.42</span></td>
+      <td><span class="value-positive">$29.42</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,110.00</td>
+      <td>$2.81</td>
+      <td>$2.82</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-11-25</td>
+      <td>09:35:00</td>
+      <td>$1,310.00</td>
+      <td>$1,310.00</td>
+      <td><span class="value-positive">$0.00</span></td>
+      <td>910</td>
+      <td>$930.00</td>
+      <td><span class="value-positive">$20.00</span></td>
+      <td><span class="value-negative">$-1,212.00</span></td>
+      <td><span class="value-negative">$-389.67</span></td>
+      <td><span class="value-positive">$822.33</span></td>
+      <td><span class="value-positive">$14.33</span></td>
+      <td>3</td>
+      <td>1</td>
+      <td>$1,310.00</td>
+      <td>$5.24</td>
+      <td>$1.74</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-11-11</td>
+      <td>09:35:00</td>
+      <td>$2,255.00</td>
+      <td>$2,260.00</td>
+      <td><span class="value-negative">$5.00</span></td>
+      <td>2,515</td>
+      <td>$2,580.00</td>
+      <td><span class="value-positive">$65.00</span></td>
+      <td><span class="value-positive">$256.00</span></td>
+      <td><span class="value-positive">$310.42</span></td>
+      <td><span class="value-positive">$54.42</span></td>
+      <td><span class="value-positive">$54.42</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,255.00</td>
+      <td>$3.01</td>
+      <td>$3.02</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-11-04</td>
+      <td>09:35:00</td>
+      <td>$2,315.00</td>
+      <td>$2,300.00</td>
+      <td><span class="value-positive">$-15.00</span></td>
+      <td>2,060</td>
+      <td>$2,020.00</td>
+      <td><span class="value-negative">$-40.00</span></td>
+      <td><span class="value-negative">$-259.00</span></td>
+      <td><span class="value-negative">$-289.58</span></td>
+      <td><span class="value-negative">$-30.58</span></td>
+      <td><span class="value-negative">$-30.58</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,315.00</td>
+      <td>$3.09</td>
+      <td>$3.09</td>
+      <td><span class="value-warning">~</span></td>
+    </tr>
+    <tr>
+      <td>2025-10-28</td>
+      <td>09:35:00</td>
+      <td>$3,110.00</td>
+      <td>$3,100.00</td>
+      <td><span class="value-positive">$-10.00</span></td>
+      <td>3,705</td>
+      <td>$3,770.00</td>
+      <td><span class="value-positive">$65.00</span></td>
+      <td><span class="value-positive">$591.00</span></td>
+      <td><span class="value-positive">$660.24</span></td>
+      <td><span class="value-positive">$69.24</span></td>
+      <td><span class="value-positive">$69.24</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$3,110.00</td>
+      <td>$4.15</td>
+      <td>$4.19</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-10-21</td>
+      <td>09:35:00</td>
+      <td>$2,755.00</td>
+      <td>$2,760.00</td>
+      <td><span class="value-negative">$5.00</span></td>
+      <td>2,205</td>
+      <td>$2,255.00</td>
+      <td><span class="value-positive">$50.00</span></td>
+      <td><span class="value-negative">$-554.00</span></td>
+      <td><span class="value-negative">$-514.02</span></td>
+      <td><span class="value-positive">$39.98</span></td>
+      <td><span class="value-positive">$39.98</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,755.00</td>
+      <td>$3.67</td>
+      <td>$3.68</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-10-07</td>
+      <td>09:35:00</td>
+      <td>$1,910.00</td>
+      <td>$1,925.00</td>
+      <td><span class="value-negative">$15.00</span></td>
+      <td>1,635</td>
+      <td>$1,590.00</td>
+      <td><span class="value-negative">$-45.00</span></td>
+      <td><span class="value-negative">$-558.00</span></td>
+      <td><span class="value-negative">$-343.93</span></td>
+      <td><span class="value-positive">$214.07</span></td>
+      <td><span class="value-negative">$-64.93</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,910.00</td>
+      <td>$5.09</td>
+      <td>$2.54</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-30</td>
+      <td>09:35:00</td>
+      <td>$1,900.00</td>
+      <td>$1,890.00</td>
+      <td><span class="value-positive">$-10.00</span></td>
+      <td>2,265</td>
+      <td>$2,115.00</td>
+      <td><span class="value-negative">$-150.00</span></td>
+      <td><span class="value-positive">$722.00</span></td>
+      <td><span class="value-positive">$215.33</span></td>
+      <td><span class="value-negative">$-506.67</span></td>
+      <td><span class="value-negative">$-145.67</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,900.00</td>
+      <td>$5.07</td>
+      <td>$2.54</td>
+      <td><span class="value-warning">~</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-23</td>
+      <td>09:35:00</td>
+      <td>$1,850.00</td>
+      <td>$1,865.00</td>
+      <td><span class="value-negative">$15.00</span></td>
+      <td>1,415</td>
+      <td>$1,420.00</td>
+      <td><span class="value-positive">$5.00</span></td>
+      <td><span class="value-negative">$-878.00</span></td>
+      <td><span class="value-negative">$-454.67</span></td>
+      <td><span class="value-positive">$423.33</span></td>
+      <td><span class="value-negative">$-15.67</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,850.00</td>
+      <td>$4.93</td>
+      <td>$2.45</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-16</td>
+      <td>09:35:00</td>
+      <td>$2,065.00</td>
+      <td>$2,075.00</td>
+      <td><span class="value-negative">$10.00</span></td>
+      <td>2,200</td>
+      <td>$2,225.00</td>
+      <td><span class="value-positive">$25.00</span></td>
+      <td><span class="value-positive">$131.00</span></td>
+      <td><span class="value-positive">$140.24</span></td>
+      <td><span class="value-positive">$9.24</span></td>
+      <td><span class="value-positive">$9.24</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,065.00</td>
+      <td>$2.75</td>
+      <td>$2.74</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-09</td>
+      <td>09:35:00</td>
+      <td>$2,185.00</td>
+      <td>$2,210.00</td>
+      <td><span class="value-negative">$25.00</span></td>
+      <td>2,515</td>
+      <td>$2,470.00</td>
+      <td><span class="value-negative">$-45.00</span></td>
+      <td><span class="value-positive">$326.00</span></td>
+      <td><span class="value-positive">$250.33</span></td>
+      <td><span class="value-negative">$-75.67</span></td>
+      <td><span class="value-negative">$-75.67</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,185.00</td>
+      <td>$2.91</td>
+      <td>$2.91</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+  </tbody>
+</table>
+            </div>
+            <div class="table-fullscreen-overlay" id="table_a483aa90_overlay">
+                <div class="table-fullscreen-content">
+                    <button class="table-fullscreen-close" onclick="toggleTableFullscreen('table_a483aa90')">✕ Close</button>
+                    <h3 style="margin-bottom: 20px;">Matched Trades Comparison</h3>
+                    <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Date</th>
+      <th>Time</th>
+      <th>Premium BT</th>
+      <th>Premium Live</th>
+      <th>Premium Diff</th>
+      <th>Close Cost BT</th>
+      <th>Close Cost Live</th>
+      <th>Close Cost Diff</th>
+      <th>P/L BT</th>
+      <th>P/L Live</th>
+      <th>P/L Diff</th>
+      <th>P/L Diff/C</th>
+      <th>Cont BT</th>
+      <th>Cont Live</th>
+      <th>Margin/Cont</th>
+      <th>Alloc BT</th>
+      <th>Alloc Live</th>
+      <th>Match</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2026-01-27</td>
+      <td>09:35:00</td>
+      <td>$2,960.00</td>
+      <td>$2,960.00</td>
+      <td><span class="value-positive">$0.00</span></td>
+      <td>3,270</td>
+      <td>$3,250.00</td>
+      <td><span class="value-negative">$-20.00</span></td>
+      <td><span class="value-positive">$306.00</span></td>
+      <td><span class="value-positive">$280.33</span></td>
+      <td><span class="value-negative">$-25.67</span></td>
+      <td><span class="value-negative">$-25.67</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,960.00</td>
+      <td>$3.95</td>
+      <td>$4.06</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2026-01-20</td>
+      <td>09:35:00</td>
+      <td>$2,340.00</td>
+      <td>$2,325.00</td>
+      <td><span class="value-positive">$-15.00</span></td>
+      <td>1,365</td>
+      <td>$1,270.00</td>
+      <td><span class="value-negative">$-95.00</span></td>
+      <td><span class="value-negative">$-979.00</span></td>
+      <td><span class="value-negative">$-1,064.67</span></td>
+      <td><span class="value-negative">$-85.67</span></td>
+      <td><span class="value-negative">$-85.67</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,340.00</td>
+      <td>$3.12</td>
+      <td>$3.17</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2026-01-13</td>
+      <td>09:35:00</td>
+      <td>$1,805.00</td>
+      <td>$1,800.00</td>
+      <td><span class="value-positive">$-5.00</span></td>
+      <td>1,045</td>
+      <td>$1,440.00</td>
+      <td><span class="value-positive">$395.00</span></td>
+      <td><span class="value-negative">$-1,528.00</span></td>
+      <td><span class="value-negative">$-369.67</span></td>
+      <td><span class="value-positive">$1,158.33</span></td>
+      <td><span class="value-positive">$394.33</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,805.00</td>
+      <td>$4.81</td>
+      <td>$2.43</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2026-01-06</td>
+      <td>09:35:00</td>
+      <td>$2,150.00</td>
+      <td>$2,135.00</td>
+      <td><span class="value-positive">$-15.00</span></td>
+      <td>2,040</td>
+      <td>$2,045.00</td>
+      <td><span class="value-positive">$5.00</span></td>
+      <td><span class="value-negative">$-114.00</span></td>
+      <td><span class="value-negative">$-99.67</span></td>
+      <td><span class="value-positive">$14.33</span></td>
+      <td><span class="value-positive">$14.33</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,150.00</td>
+      <td>$2.87</td>
+      <td>$2.89</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-30</td>
+      <td>09:35:00</td>
+      <td>$830.00</td>
+      <td>$835.00</td>
+      <td><span class="value-negative">$5.00</span></td>
+      <td>970</td>
+      <td>$965.00</td>
+      <td><span class="value-negative">$-5.00</span></td>
+      <td><span class="value-positive">$544.00</span></td>
+      <td><span class="value-positive">$121.07</span></td>
+      <td><span class="value-negative">$-422.93</span></td>
+      <td><span class="value-negative">$-14.93</span></td>
+      <td>4</td>
+      <td>1</td>
+      <td>$830.00</td>
+      <td>$4.43</td>
+      <td>$1.12</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-23</td>
+      <td>09:35:00</td>
+      <td>$775.00</td>
+      <td>$770.00</td>
+      <td><span class="value-positive">$-5.00</span></td>
+      <td>845</td>
+      <td>$845.00</td>
+      <td><span class="value-negative">$-0.00</span></td>
+      <td><span class="value-positive">$330.00</span></td>
+      <td><span class="value-positive">$65.33</span></td>
+      <td><span class="value-negative">$-264.67</span></td>
+      <td><span class="value-negative">$-0.67</span></td>
+      <td>5</td>
+      <td>1</td>
+      <td>$775.00</td>
+      <td>$5.17</td>
+      <td>$1.04</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-16</td>
+      <td>09:35:00</td>
+      <td>$2,635.00</td>
+      <td>$2,660.00</td>
+      <td><span class="value-negative">$25.00</span></td>
+      <td>2,565</td>
+      <td>$2,570.00</td>
+      <td><span class="value-positive">$5.00</span></td>
+      <td><span class="value-negative">$-74.00</span></td>
+      <td><span class="value-negative">$-99.02</span></td>
+      <td><span class="value-negative">$-25.02</span></td>
+      <td><span class="value-negative">$-25.02</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,635.00</td>
+      <td>$3.51</td>
+      <td>$3.55</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-09</td>
+      <td>09:35:00</td>
+      <td>$2,855.00</td>
+      <td>$2,865.00</td>
+      <td><span class="value-negative">$10.00</span></td>
+      <td>2,490</td>
+      <td>$2,645.00</td>
+      <td><span class="value-positive">$155.00</span></td>
+      <td><span class="value-negative">$-369.00</span></td>
+      <td><span class="value-negative">$-229.76</span></td>
+      <td><span class="value-positive">$139.24</span></td>
+      <td><span class="value-positive">$139.24</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,855.00</td>
+      <td>$3.81</td>
+      <td>$3.83</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-12-02</td>
+      <td>09:35:00</td>
+      <td>$2,110.00</td>
+      <td>$2,125.00</td>
+      <td><span class="value-negative">$15.00</span></td>
+      <td>1,805</td>
+      <td>$1,855.00</td>
+      <td><span class="value-positive">$50.00</span></td>
+      <td><span class="value-negative">$-309.00</span></td>
+      <td><span class="value-negative">$-279.58</span></td>
+      <td><span class="value-positive">$29.42</span></td>
+      <td><span class="value-positive">$29.42</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,110.00</td>
+      <td>$2.81</td>
+      <td>$2.82</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-11-25</td>
+      <td>09:35:00</td>
+      <td>$1,310.00</td>
+      <td>$1,310.00</td>
+      <td><span class="value-positive">$0.00</span></td>
+      <td>910</td>
+      <td>$930.00</td>
+      <td><span class="value-positive">$20.00</span></td>
+      <td><span class="value-negative">$-1,212.00</span></td>
+      <td><span class="value-negative">$-389.67</span></td>
+      <td><span class="value-positive">$822.33</span></td>
+      <td><span class="value-positive">$14.33</span></td>
+      <td>3</td>
+      <td>1</td>
+      <td>$1,310.00</td>
+      <td>$5.24</td>
+      <td>$1.74</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-11-11</td>
+      <td>09:35:00</td>
+      <td>$2,255.00</td>
+      <td>$2,260.00</td>
+      <td><span class="value-negative">$5.00</span></td>
+      <td>2,515</td>
+      <td>$2,580.00</td>
+      <td><span class="value-positive">$65.00</span></td>
+      <td><span class="value-positive">$256.00</span></td>
+      <td><span class="value-positive">$310.42</span></td>
+      <td><span class="value-positive">$54.42</span></td>
+      <td><span class="value-positive">$54.42</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,255.00</td>
+      <td>$3.01</td>
+      <td>$3.02</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-11-04</td>
+      <td>09:35:00</td>
+      <td>$2,315.00</td>
+      <td>$2,300.00</td>
+      <td><span class="value-positive">$-15.00</span></td>
+      <td>2,060</td>
+      <td>$2,020.00</td>
+      <td><span class="value-negative">$-40.00</span></td>
+      <td><span class="value-negative">$-259.00</span></td>
+      <td><span class="value-negative">$-289.58</span></td>
+      <td><span class="value-negative">$-30.58</span></td>
+      <td><span class="value-negative">$-30.58</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,315.00</td>
+      <td>$3.09</td>
+      <td>$3.09</td>
+      <td><span class="value-warning">~</span></td>
+    </tr>
+    <tr>
+      <td>2025-10-28</td>
+      <td>09:35:00</td>
+      <td>$3,110.00</td>
+      <td>$3,100.00</td>
+      <td><span class="value-positive">$-10.00</span></td>
+      <td>3,705</td>
+      <td>$3,770.00</td>
+      <td><span class="value-positive">$65.00</span></td>
+      <td><span class="value-positive">$591.00</span></td>
+      <td><span class="value-positive">$660.24</span></td>
+      <td><span class="value-positive">$69.24</span></td>
+      <td><span class="value-positive">$69.24</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$3,110.00</td>
+      <td>$4.15</td>
+      <td>$4.19</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-10-21</td>
+      <td>09:35:00</td>
+      <td>$2,755.00</td>
+      <td>$2,760.00</td>
+      <td><span class="value-negative">$5.00</span></td>
+      <td>2,205</td>
+      <td>$2,255.00</td>
+      <td><span class="value-positive">$50.00</span></td>
+      <td><span class="value-negative">$-554.00</span></td>
+      <td><span class="value-negative">$-514.02</span></td>
+      <td><span class="value-positive">$39.98</span></td>
+      <td><span class="value-positive">$39.98</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,755.00</td>
+      <td>$3.67</td>
+      <td>$3.68</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-10-07</td>
+      <td>09:35:00</td>
+      <td>$1,910.00</td>
+      <td>$1,925.00</td>
+      <td><span class="value-negative">$15.00</span></td>
+      <td>1,635</td>
+      <td>$1,590.00</td>
+      <td><span class="value-negative">$-45.00</span></td>
+      <td><span class="value-negative">$-558.00</span></td>
+      <td><span class="value-negative">$-343.93</span></td>
+      <td><span class="value-positive">$214.07</span></td>
+      <td><span class="value-negative">$-64.93</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,910.00</td>
+      <td>$5.09</td>
+      <td>$2.54</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-30</td>
+      <td>09:35:00</td>
+      <td>$1,900.00</td>
+      <td>$1,890.00</td>
+      <td><span class="value-positive">$-10.00</span></td>
+      <td>2,265</td>
+      <td>$2,115.00</td>
+      <td><span class="value-negative">$-150.00</span></td>
+      <td><span class="value-positive">$722.00</span></td>
+      <td><span class="value-positive">$215.33</span></td>
+      <td><span class="value-negative">$-506.67</span></td>
+      <td><span class="value-negative">$-145.67</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,900.00</td>
+      <td>$5.07</td>
+      <td>$2.54</td>
+      <td><span class="value-warning">~</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-23</td>
+      <td>09:35:00</td>
+      <td>$1,850.00</td>
+      <td>$1,865.00</td>
+      <td><span class="value-negative">$15.00</span></td>
+      <td>1,415</td>
+      <td>$1,420.00</td>
+      <td><span class="value-positive">$5.00</span></td>
+      <td><span class="value-negative">$-878.00</span></td>
+      <td><span class="value-negative">$-454.67</span></td>
+      <td><span class="value-positive">$423.33</span></td>
+      <td><span class="value-negative">$-15.67</span></td>
+      <td>2</td>
+      <td>1</td>
+      <td>$1,850.00</td>
+      <td>$4.93</td>
+      <td>$2.45</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-16</td>
+      <td>09:35:00</td>
+      <td>$2,065.00</td>
+      <td>$2,075.00</td>
+      <td><span class="value-negative">$10.00</span></td>
+      <td>2,200</td>
+      <td>$2,225.00</td>
+      <td><span class="value-positive">$25.00</span></td>
+      <td><span class="value-positive">$131.00</span></td>
+      <td><span class="value-positive">$140.24</span></td>
+      <td><span class="value-positive">$9.24</span></td>
+      <td><span class="value-positive">$9.24</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,065.00</td>
+      <td>$2.75</td>
+      <td>$2.74</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+    <tr>
+      <td>2025-09-09</td>
+      <td>09:35:00</td>
+      <td>$2,185.00</td>
+      <td>$2,210.00</td>
+      <td><span class="value-negative">$25.00</span></td>
+      <td>2,515</td>
+      <td>$2,470.00</td>
+      <td><span class="value-negative">$-45.00</span></td>
+      <td><span class="value-positive">$326.00</span></td>
+      <td><span class="value-positive">$250.33</span></td>
+      <td><span class="value-negative">$-75.67</span></td>
+      <td><span class="value-negative">$-75.67</span></td>
+      <td>1</td>
+      <td>1</td>
+      <td>$2,185.00</td>
+      <td>$2.91</td>
+      <td>$2.91</td>
+      <td><span class="value-positive">✓</span></td>
+    </tr>
+  </tbody>
+</table>
+                </div>
+            </div>
+            
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Missed Trades</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">Number of Missed Trades:</span> <span class="stat-value value-warning">1</span></div>
+<div class="stat-line"><span class="stat-label">Total P/L of Missed Trades:</span> <span class="stat-value value-info">$-639.00</span></div></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Missed Trade Details</h2>
+                <div class="section-content">
+                    
+            <div class="table-wrapper" id="table_9ec2bd8b_wrapper">
+                <button class="table-fullscreen-btn" onclick="toggleTableFullscreen('table_9ec2bd8b')">⛶ Full Screen</button>
+                <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>P/L</th>
+      <th>Strategy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="value-negative">$-639.00</span></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+            </div>
+            <div class="table-fullscreen-overlay" id="table_9ec2bd8b_overlay">
+                <div class="table-fullscreen-content">
+                    <button class="table-fullscreen-close" onclick="toggleTableFullscreen('table_9ec2bd8b')">✕ Close</button>
+                    <h3 style="margin-bottom: 20px;">Missed Trade Details</h3>
+                    <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>P/L</th>
+      <th>Strategy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="value-negative">$-639.00</span></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+                </div>
+            </div>
+            
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Over Trades</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">Number of Over Trades:</span> <span class="stat-value value-warning">1</span></div>
+<div class="stat-line"><span class="stat-label">Total P/L of Over Trades:</span> <span class="stat-value value-info">$226.07</span></div></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Over Trade Details</h2>
+                <div class="section-content">
+                    
+            <div class="table-wrapper" id="table_cc975695_wrapper">
+                <button class="table-fullscreen-btn" onclick="toggleTableFullscreen('table_cc975695')">⛶ Full Screen</button>
+                <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>P/L</th>
+      <th>Strategy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="value-positive">$226.07</span></td>
+      <td>Tuesday 1/3 Double Calendar [Delta based rail]</td>
+    </tr>
+  </tbody>
+</table>
+            </div>
+            <div class="table-fullscreen-overlay" id="table_cc975695_overlay">
+                <div class="table-fullscreen-content">
+                    <button class="table-fullscreen-close" onclick="toggleTableFullscreen('table_cc975695')">✕ Close</button>
+                    <h3 style="margin-bottom: 20px;">Over Trade Details</h3>
+                    <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>P/L</th>
+      <th>Strategy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="value-positive">$226.07</span></td>
+      <td>Tuesday 1/3 Double Calendar [Delta based rail]</td>
+    </tr>
+  </tbody>
+</table>
+                </div>
+            </div>
+            
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">P/L Difference Breakdown</h2>
+                <div class="section-content">
+                    <div class="statistics-box"><div class="stat-line"><span class="stat-label">$226.07 (9.4%) diff was due to over trading N=1, avg=$226.07:</span> <span class="stat-value value-positive"></span></div>
+<div class="stat-line"><span class="stat-label">$639.00 (26.7%) diff was due to missed trades N=1, avg=$639.00:</span> <span class="stat-value value-positive"></span></div>
+<div class="stat-line"><span class="stat-label">$-55.00 (2.3%) diff was due to entry slippage N=17, avg=$-3.24:</span> <span class="stat-value value-negative"></span></div>
+<div class="stat-line"><span class="stat-label">$440.00 (18.4%) diff was due to exit slippage N=19, avg=$23.16:</span> <span class="stat-value value-positive"></span></div>
+<div class="stat-line"><span class="stat-label">$1,036.07 (43.2%) diff was due to under-allocation N=7, avg=$148.01:</span> <span class="stat-value value-positive"></span></div></div>
+                </div>
+            </div>
+            
+        </main>
+        
+        <footer>
+            <div>Generated by Expected Value Tools</div>
+            <div class="disclaimer">
+                DISCLAIMER: This tool is provided for educational purposes only.
+                The analysis and results should not be considered as financial advice.
+                Always perform your own due diligence and consult with qualified
+                professionals before making any trading or investment decisions.
+            </div>
+        </footer>
+        
+    </div>
+    
+    <script>
+        function toggleTableFullscreen(tableId) {
+            const overlay = document.getElementById(tableId + '_overlay');
+            if (overlay) {
+                overlay.classList.toggle('active');
+            }
+        }
+        
+        // Close fullscreen on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const overlays = document.querySelectorAll('.table-fullscreen-overlay.active');
+                overlays.forEach(overlay => {
+                    overlay.classList.remove('active');
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>

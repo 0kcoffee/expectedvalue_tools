@@ -405,7 +405,14 @@ class LiveBacktestComparisonTest(BaseTest):
             # Table uses: Premium per Contract * No. of Contracts to get total, then difference
             premium_bt = bt_row.get("Premium per Contract", 0) * bt_row.get("No. of Contracts", 1)
             premium_live = live_row.get("Premium per Contract", 0) * live_row.get("No. of Contracts", 1)
-            entry_diff = premium_live - premium_bt
+            entry_diff_raw = premium_live - premium_bt
+            
+            # Apply trade type multiplier to entry diff
+            # For credit trades: positive diff is good (use directly)
+            # For debit trades: negative diff is good (negate)
+            trade_type = bt_row.get("Trade Type", "credit")
+            trade_type_multiplier = 1 if trade_type == "credit" else -1
+            entry_diff = entry_diff_raw * trade_type_multiplier
             entry_diffs.append(entry_diff)
 
             # Exit difference (closing cost difference) - use same calculation as table
@@ -419,7 +426,13 @@ class LiveBacktestComparisonTest(BaseTest):
             if pd.isna(live_closing_cost):
                 live_closing_cost = 0
             
-            exit_diff = live_closing_cost - bt_closing_cost
+            exit_diff_raw = live_closing_cost - bt_closing_cost
+            
+            # Apply trade type multiplier to exit diff
+            # For credit trades: negative diff is good (negate)
+            # For debit trades: positive diff is good (use directly)
+            trade_type_multiplier = -1 if trade_type == "credit" else 1
+            exit_diff = exit_diff_raw * trade_type_multiplier
             exit_diffs.append(exit_diff)
 
         pl_diffs = np.array(pl_diffs)
@@ -617,9 +630,17 @@ class LiveBacktestComparisonTest(BaseTest):
         missed_trades_avg = missed_trades_pl / missed_trades_count if missed_trades_count > 0 else 0
         
         # Entry slippage: Sum of premium differences for matched trades
-        # Positive premium_diff means we received more premium (good for P/L)
+        # For credit trades: Positive premium_diff is good (received more premium)
+        # For debit trades: Negative premium_diff is good (paid less premium)
         entry_slippage_rows = [row for row in matched_trades_table if row.get("premium_diff", 0) != 0]
-        entry_slippage = sum(row.get("premium_diff", 0) for row in entry_slippage_rows)
+        entry_slippage = 0
+        for row in entry_slippage_rows:
+            premium_diff = row.get("premium_diff", 0)
+            trade_type = row.get("trade_type", "credit")
+            # For credit trades: use premium_diff directly (positive = good)
+            # For debit trades: negate premium_diff (negative = good, so negate)
+            trade_type_multiplier = 1 if trade_type == "credit" else -1
+            entry_slippage += premium_diff * trade_type_multiplier
         entry_slippage_count = len(entry_slippage_rows)
         entry_slippage_avg = entry_slippage / entry_slippage_count if entry_slippage_count > 0 else 0
         
@@ -630,11 +651,19 @@ class LiveBacktestComparisonTest(BaseTest):
         different_outcome_count = len(different_outcome_rows)
         different_outcome_avg = different_outcome_pl / different_outcome_count if different_outcome_count > 0 else 0
         
-        # Exit slippage: Negate closing cost differences for matched trades WITH SAME OUTCOME
+        # Exit slippage: Closing cost differences for matched trades WITH SAME OUTCOME
         # Only include trades where reason for close matches (same outcome)
-        # Positive closing_cost_diff means we paid more to close (bad for P/L), so negate it
+        # For credit trades: Negative closing_cost_diff is good (paid less to close), so negate it
+        # For debit trades: Positive closing_cost_diff is good (received more to close), so don't negate
         exit_slippage_rows = [row for row in matched_trades_table if row.get("reason_match", False) and row.get("closing_cost_diff", 0) != 0]
-        exit_slippage = -sum(row.get("closing_cost_diff", 0) for row in exit_slippage_rows)
+        exit_slippage = 0
+        for row in exit_slippage_rows:
+            closing_cost_diff = row.get("closing_cost_diff", 0)
+            trade_type = row.get("trade_type", "credit")
+            # For credit trades: negate closing_cost_diff (negative = good, so negate)
+            # For debit trades: use closing_cost_diff directly (positive = good, so don't negate)
+            trade_type_multiplier = -1 if trade_type == "credit" else 1
+            exit_slippage += closing_cost_diff * trade_type_multiplier
         exit_slippage_count = len(exit_slippage_rows)
         exit_slippage_avg = exit_slippage / exit_slippage_count if exit_slippage_count > 0 else 0
         
@@ -845,6 +874,21 @@ class LiveBacktestComparisonTest(BaseTest):
             # Calculate closing cost difference (live - backtest)
             closing_cost_diff = closing_cost_live - closing_cost_bt
             
+            # Get trade type from both backtest and live DataFrames
+            trade_type_bt = bt_row.get("Trade Type", "credit")
+            trade_type_live = live_row.get("Trade Type", "credit")
+            
+            # Validate that trade types match (log warning if they don't)
+            if trade_type_bt != trade_type_live:
+                import warnings
+                warnings.warn(
+                    f"Trade type mismatch for matched trade: backtest={trade_type_bt}, live={trade_type_live}. "
+                    f"Using backtest trade type for calculations."
+                )
+            
+            # Use backtest trade type as primary source for slippage calculations
+            trade_type = trade_type_bt
+            
             table_data.append({
                 "date": bt_row.get("Date Opened", ""),
                 "time_bt": bt_row.get("Time Opened", ""),
@@ -866,6 +910,9 @@ class LiveBacktestComparisonTest(BaseTest):
                 "alloc_live": alloc_live,
                 "strategy_bt": bt_row.get("Strategy", ""),
                 "strategy_live": live_row.get("Strategy", ""),
+                "trade_type_bt": trade_type_bt,
+                "trade_type_live": trade_type_live,
+                "trade_type": trade_type,
                 "legs_match": legs_match(
                     parse_legs_from_dataframe_row(bt_row, "Legs"),
                     parse_legs_from_dataframe_row(live_row, "Legs")

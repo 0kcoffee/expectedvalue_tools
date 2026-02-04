@@ -120,6 +120,7 @@ class DrawdownAnalysisTest(BaseTest):
             "has_margin_data": False,
             "mean_allocation_pct": 0.0,
             "max_allocation_pct": 0.0,
+            "std_allocation_pct": 0.0,
             "mean_margin_per_contract": 0.0,
             "max_margin_per_contract": 0.0,
             "allocations": [],
@@ -150,6 +151,7 @@ class DrawdownAnalysisTest(BaseTest):
             results["allocations"] = allocations
             results["mean_allocation_pct"] = np.mean(allocations)
             results["max_allocation_pct"] = np.max(allocations)
+            results["std_allocation_pct"] = np.std(allocations)
         
         if margins_per_contract:
             results["mean_margin_per_contract"] = np.mean(margins_per_contract)
@@ -475,7 +477,7 @@ class DrawdownAnalysisTest(BaseTest):
         monthly_pl = data.groupby("month")["P/L"].sum()
 
         weekly_calendar = {
-            str(week): {"pl": pl, "profitable": pl > 0}
+            f"{week.start_time.isocalendar()[0]}-W{week.start_time.isocalendar()[1]:02d}": {"pl": pl, "profitable": pl > 0}
             for week, pl in weekly_pl.items()
         }
 

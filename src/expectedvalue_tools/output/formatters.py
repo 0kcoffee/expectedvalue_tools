@@ -2,6 +2,7 @@
 
 from typing import Optional
 import numpy as np
+import pandas as pd
 from ..utils.colors import Colors
 from ..utils.text import visible_length
 
@@ -883,8 +884,21 @@ def print_matched_trades_table(results: dict) -> None:
         
         pl_diff_color = Colors.BRIGHT_GREEN if pl_diff >= 0 else Colors.BRIGHT_RED
         pl_diff_per_contract_color = Colors.BRIGHT_GREEN if pl_diff_per_contract >= 0 else Colors.BRIGHT_RED
-        premium_diff_color = Colors.BRIGHT_GREEN if premium_diff >= 0 else Colors.BRIGHT_RED
-        closing_cost_diff_color = Colors.BRIGHT_GREEN if closing_cost_diff >= 0 else Colors.BRIGHT_RED
+        
+        # Color logic for premium_diff and closing_cost_diff depends on trade type
+        trade_type = row.get("trade_type", "credit")
+        
+        # Premium diff: For credit trades, positive is good. For debit trades, negative is good.
+        if trade_type == "credit":
+            premium_diff_color = Colors.BRIGHT_GREEN if premium_diff >= 0 else Colors.BRIGHT_RED
+        else:  # debit
+            premium_diff_color = Colors.BRIGHT_GREEN if premium_diff <= 0 else Colors.BRIGHT_RED
+        
+        # Closing cost diff: For credit trades, negative is good. For debit trades, positive is good.
+        if trade_type == "credit":
+            closing_cost_diff_color = Colors.BRIGHT_GREEN if closing_cost_diff <= 0 else Colors.BRIGHT_RED
+        else:  # debit
+            closing_cost_diff_color = Colors.BRIGHT_GREEN if closing_cost_diff >= 0 else Colors.BRIGHT_RED
         
         # Format margin per contract (show as 0 if not available)
         if margin_per_contract > 0:
@@ -1054,6 +1068,7 @@ def print_margin_check(
     allocations = margin_check.get("allocations", [])
     mean_alloc = margin_check.get("mean_allocation_pct", 0.0)
     max_alloc = margin_check.get("max_allocation_pct", 0.0)
+    std_alloc = margin_check.get("std_allocation_pct", 0.0)
     mean_margin = margin_check.get("mean_margin_per_contract", 0.0)
     max_margin = margin_check.get("max_margin_per_contract", 0.0)
 
@@ -1071,6 +1086,11 @@ def print_margin_check(
         (
             "Mean Margin Allocation (1-lot):",
             f"{mean_alloc:.2f}% (${mean_margin:,.2f})",
+            Colors.BRIGHT_YELLOW,
+        ),
+        (
+            "Std Dev Margin Allocation (1-lot):",
+            f"{std_alloc:.2f}%",
             Colors.BRIGHT_YELLOW,
         ),
         (
@@ -1286,8 +1306,12 @@ def _print_calendar_grid(period_data: dict, period_type: str) -> None:
     for i in range(0, len(sorted_periods), cols_per_row):
         rows.append(sorted_periods[i:i + cols_per_row])
 
+    # Calculate box width based on number of columns and cell width
+    # Each cell is ~18 chars, add padding for borders
+    cell_width = 18
+    box_width = (cols_per_row * cell_width) + 4  # Add padding for borders
+    
     # Print header
-    box_width = 80
     header_text = f"{period_type.upper()} CALENDAR"
     header_spaces = box_width - visible_length(header_text) - 4
     print(f"\n{Colors.BRIGHT_WHITE}{Colors.BOLD}{'═' * box_width}{Colors.RESET}")
@@ -1301,14 +1325,16 @@ def _print_calendar_grid(period_data: dict, period_type: str) -> None:
         row_text = ""
         for period_str, data in row:
             # Format period string
-            # Pandas Period objects convert to strings like "2025-W01" for weeks or "2025-01" for months
+            # Week format: "2025-W01" (YYYY-Www)
+            # Month format: "2025-01" (YYYY-MM)
             if period_type == "week":
-                # Period format: "2025-W01" -> "2025-W01"
-                if "W" in period_str:
-                    period_display = period_str[:8]  # "2025-W01"
+                # Week format should be "2025-W01" or "2025-W52" etc.
+                if "W" in period_str and len(period_str) >= 8:
+                    # Extract year and week number: "2025-W01" -> "2025-W01"
+                    period_display = period_str[:8]
                 else:
-                    # Fallback: try to extract date
-                    period_display = period_str[:7] if len(period_str) >= 7 else period_str
+                    # Fallback: show full string if format is unexpected
+                    period_display = period_str[:10] if len(period_str) >= 10 else period_str
             else:
                 # Period format: "2025-01" -> "2025-01"
                 period_display = period_str[:7] if len(period_str) >= 7 else period_str
@@ -1317,9 +1343,14 @@ def _print_calendar_grid(period_data: dict, period_type: str) -> None:
             color = Colors.BRIGHT_GREEN if data["profitable"] else Colors.BRIGHT_RED
             symbol = "█"
             
-            # Format: symbol + period (max 10 chars for period)
-            period_display = period_display[:10]
-            row_text += f"{color}{symbol}{Colors.RESET} {period_display:<10}"
+            # Get P/L value
+            pl_value = data.get("pl", 0)
+            pl_str = f"${pl_value:,.2f}" if abs(pl_value) >= 1 else f"${pl_value:,.2f}"
+            
+            # Format: symbol + period + P/L (e.g., "█ 2025-W36 $123.45")
+            period_display = period_display[:8]  # Shorter to fit P/L
+            cell_text = f"{color}{symbol}{Colors.RESET} {period_display} {pl_str}"
+            row_text += f"{cell_text:<18}"  # Fixed width for alignment
 
         row_spaces = box_width - visible_length(row_text) - 4
         print(
@@ -1327,3 +1358,297 @@ def _print_calendar_grid(period_data: dict, period_type: str) -> None:
         )
 
     print(f"{Colors.BRIGHT_WHITE}{Colors.BOLD}{'═' * box_width}{Colors.RESET}\n")
+
+
+def print_track_metrics(portfolio_metrics: dict, drawdown_analysis: dict) -> None:
+    """
+    Print portfolio-level metrics for track test.
+
+    Args:
+        portfolio_metrics: Dictionary with portfolio metrics
+        drawdown_analysis: Dictionary with drawdown analysis results
+    """
+    box_width = 80
+    lines = []
+
+    # Net P/L
+    net_pl = portfolio_metrics.get("net_pl", 0.0)
+    pl_color = Colors.BRIGHT_GREEN if net_pl >= 0 else Colors.BRIGHT_RED
+    lines.append((
+        "Net P/L:",
+        f"${net_pl:,.2f}",
+        pl_color,
+    ))
+
+    # Extra Fees (if applicable)
+    extra_fees_monthly = portfolio_metrics.get("extra_fees_monthly", 0.0)
+    total_fees = portfolio_metrics.get("total_fees", 0.0)
+    if extra_fees_monthly > 0:
+        lines.append((
+            "Extra Fees (Monthly):",
+            f"${extra_fees_monthly:,.2f}",
+            Colors.BRIGHT_YELLOW,
+        ))
+        lines.append((
+            "Total Fees:",
+            f"${total_fees:,.2f}",
+            Colors.BRIGHT_YELLOW,
+        ))
+        # Net P/L after fees
+        net_pl_after_fees = portfolio_metrics.get("net_pl_after_fees", 0.0)
+        pl_after_fees_color = Colors.BRIGHT_GREEN if net_pl_after_fees >= 0 else Colors.BRIGHT_RED
+        lines.append((
+            "Net P/L After Fees:",
+            f"${net_pl_after_fees:,.2f}",
+            pl_after_fees_color,
+        ))
+
+    # CAGR
+    cagr = portfolio_metrics.get("cagr", 0.0)
+    cagr_color = Colors.BRIGHT_GREEN if cagr >= 0 else Colors.BRIGHT_RED
+    lines.append((
+        "CAGR:",
+        f"{cagr:.2f}%",
+        cagr_color,
+    ))
+
+    # Max Drawdown
+    max_dd_pct = drawdown_analysis.get("max_drawdown_pct", 0.0)
+    lines.append((
+        "Max Drawdown:",
+        f"{max_dd_pct:.2f}%",
+        Colors.BRIGHT_RED,
+    ))
+
+    # MAR (CAGR / Max Drawdown)
+    mar = 0.0
+    if max_dd_pct > 0:
+        mar = cagr / max_dd_pct
+    mar_color = Colors.BRIGHT_GREEN if mar >= 0 else Colors.BRIGHT_RED
+    lines.append((
+        "MAR (CAGR / Max DD):",
+        f"{mar:.2f}",
+        mar_color,
+    ))
+
+    # Sharpe Ratio
+    sharpe = portfolio_metrics.get("sharpe", 0.0)
+    sharpe_color = Colors.BRIGHT_GREEN if sharpe >= 0 else Colors.BRIGHT_RED
+    lines.append((
+        "Sharpe Ratio:",
+        f"{sharpe:.2f}",
+        sharpe_color,
+    ))
+
+    # Sortino Ratio
+    sortino = portfolio_metrics.get("sortino", 0.0)
+    sortino_color = Colors.BRIGHT_GREEN if sortino >= 0 else Colors.BRIGHT_RED
+    lines.append((
+        "Sortino Ratio:",
+        f"{sortino:.2f}",
+        sortino_color,
+    ))
+
+    # Total Premium
+    total_premium = portfolio_metrics.get("total_premium", 0.0)
+    lines.append((
+        "Total Premium:",
+        f"${total_premium:,.2f}",
+        Colors.BRIGHT_WHITE,
+    ))
+
+    # PCR (Premium Capture Rate)
+    pcr = portfolio_metrics.get("pcr", 0.0)
+    pcr_color = Colors.BRIGHT_GREEN if pcr >= 0 else Colors.BRIGHT_RED
+    lines.append((
+        "PCR (Premium Capture Rate):",
+        f"{pcr:.2f}%",
+        pcr_color,
+    ))
+
+    print_box(box_width, "PORTFOLIO METRICS", lines)
+
+
+def print_track_strategy_table(strategy_stats: list) -> None:
+    """
+    Print strategy-level statistics table with color-coded days since last trade.
+
+    Args:
+        strategy_stats: List of dictionaries with strategy statistics
+    """
+    if not strategy_stats:
+        print_section_box(
+            80,
+            "STRATEGY STATISTICS",
+            ["No strategy data available."],
+        )
+        return
+
+    box_width = 80
+    print_section_box(
+        box_width,
+        "STRATEGY STATISTICS",
+        ["Sorted by most recent to oldest"],
+    )
+
+    # Print header - use right alignment for numeric columns to match data
+    header = (
+        f"{'Strategy':<35} {'Trades':>8} {'Net P/L':>12} {'Avg/Cont':>10} "
+        f"{'Avg/Trade':>11} {'Win/Cont':>10} {'Loss/Cont':>10} {'Win%':>7} "
+        f"{'PCR%':>8} {'Last Trade':<12} {'Days':>6}"
+    )
+    print(f"{Colors.BRIGHT_WHITE}{Colors.BOLD}{header}{Colors.RESET}")
+    print(f"{Colors.BRIGHT_WHITE}{Colors.BOLD}{'-' * len(header)}{Colors.RESET}")
+
+    # Print rows
+    for stat in strategy_stats:
+        strategy = stat.get("strategy", "")
+        if len(strategy) > 34:
+            strategy = strategy[:31] + "..."
+
+        num_trades = stat.get("num_trades", 0)
+        net_pl = stat.get("net_pl", 0.0)
+        avg_pl_per_contract = stat.get("avg_pl_per_contract", 0.0)
+        avg_pl_per_trade = stat.get("avg_pl_per_trade", 0.0)
+        avg_win_per_contract = stat.get("avg_win_per_contract", 0.0)
+        avg_loss_per_contract = stat.get("avg_loss_per_contract", 0.0)
+        win_rate = stat.get("win_rate", 0.0)
+        pcr = stat.get("pcr", 0.0)
+        last_trade_date = stat.get("last_trade_date")
+        days_since = stat.get("days_since")
+
+        # Format last trade date
+        if last_trade_date and pd.notna(last_trade_date):
+            last_trade_str = last_trade_date.strftime("%Y-%m-%d")
+        else:
+            last_trade_str = "N/A"
+
+        # Color code days since
+        if days_since is not None:
+            if days_since <= 7:
+                days_color = Colors.BRIGHT_YELLOW
+            elif days_since <= 30:
+                days_color = Colors.BRIGHT_YELLOW  # Could use orange if available
+            else:
+                days_color = Colors.BRIGHT_RED
+            days_str = f"{days_since}"
+        else:
+            days_color = Colors.RESET
+            days_str = "N/A"
+
+        # Color code net P/L
+        pl_color = Colors.BRIGHT_GREEN if net_pl >= 0 else Colors.BRIGHT_RED
+
+        # Format row with proper alignment matching header
+        row = (
+            f"{strategy:<35} {num_trades:>8} {pl_color}${net_pl:>11,.2f}{Colors.RESET} "
+            f"${avg_pl_per_contract:>9,.2f} ${avg_pl_per_trade:>10,.2f} "
+            f"${avg_win_per_contract:>9,.2f} ${avg_loss_per_contract:>9,.2f} "
+            f"{win_rate:>6.1f}% {pcr:>7.1f}% {last_trade_str:<12} "
+            f"{days_color}{days_str:>6}{Colors.RESET}"
+        )
+        print(row)
+
+    print()
+
+
+def print_track_drawdown_analysis(drawdown_analysis: dict) -> None:
+    """
+    Print drawdown analysis for track test.
+
+    Args:
+        drawdown_analysis: Dictionary with drawdown analysis results
+    """
+    box_width = 80
+    lines = []
+
+    # Max Drawdown
+    max_dd_dollars = drawdown_analysis.get("max_drawdown_dollars", 0.0)
+    max_dd_pct = drawdown_analysis.get("max_drawdown_pct", 0.0)
+    lines.append((
+        "Max Drawdown:",
+        f"${max_dd_dollars:,.2f} ({max_dd_pct:.2f}%)",
+        Colors.BRIGHT_RED,
+    ))
+
+    # Longest Drawdown
+    longest_dd = drawdown_analysis.get("longest_drawdown")
+    if longest_dd:
+        length_days = longest_dd.get("length_days", 0)
+        depth_pct = longest_dd.get("depth_pct", 0.0)
+        start_date = longest_dd.get("start_date")
+        end_date = longest_dd.get("end_date")
+        if start_date and end_date:
+            date_str = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        else:
+            date_str = "N/A"
+        lines.append((
+            "Longest Drawdown:",
+            f"{length_days} days, {depth_pct:.2f}% depth ({date_str})",
+            Colors.BRIGHT_YELLOW,
+        ))
+
+    # Shortest Drawdown
+    shortest_dd = drawdown_analysis.get("shortest_drawdown")
+    if shortest_dd:
+        length_days = shortest_dd.get("length_days", 0)
+        depth_pct = shortest_dd.get("depth_pct", 0.0)
+        start_date = shortest_dd.get("start_date")
+        end_date = shortest_dd.get("end_date")
+        if start_date and end_date:
+            date_str = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        else:
+            date_str = "N/A"
+        lines.append((
+            "Shortest Drawdown:",
+            f"{length_days} days, {depth_pct:.2f}% depth ({date_str})",
+            Colors.BRIGHT_YELLOW,
+        ))
+
+    # Average Drawdown Length
+    avg_length = drawdown_analysis.get("average_drawdown_length", 0.0)
+    lines.append((
+        "Average Drawdown Length:",
+        f"{avg_length:.1f} days",
+        Colors.BRIGHT_WHITE,
+    ))
+
+    # Average Drawdown Depth
+    avg_depth = drawdown_analysis.get("average_drawdown_depth", 0.0)
+    lines.append((
+        "Average Drawdown Depth:",
+        f"{avg_depth:.2f}%",
+        Colors.BRIGHT_WHITE,
+    ))
+
+    # Number of Drawdowns
+    num_drawdowns = drawdown_analysis.get("num_drawdowns", 0)
+    lines.append((
+        "Number of Drawdowns:",
+        f"{num_drawdowns}",
+        Colors.BRIGHT_WHITE,
+    ))
+
+    # Current Drawdown
+    current_dd = drawdown_analysis.get("current_drawdown")
+    if current_dd:
+        length_days = current_dd.get("length_days", 0)
+        depth_pct = current_dd.get("depth_pct", 0.0)
+        start_date = current_dd.get("start_date")
+        if start_date:
+            date_str = f"since {start_date.strftime('%Y-%m-%d')}"
+        else:
+            date_str = ""
+        lines.append((
+            "Current Drawdown:",
+            f"{length_days} days, {depth_pct:.2f}% depth {date_str}",
+            Colors.BRIGHT_RED,
+        ))
+    else:
+        lines.append((
+            "Current Drawdown:",
+            "None (at peak)",
+            Colors.BRIGHT_GREEN,
+        ))
+
+    print_box(box_width, "DRAWDOWN ANALYSIS", lines)

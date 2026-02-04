@@ -308,6 +308,14 @@ class TradeDataNormalizer(BaseNormalizer):
         if premium_col:
             premium_values = df[premium_col].copy()
 
+            # Preserve original premium sign before converting to absolute values
+            # This is needed to detect trade type (debit vs credit) in the enricher
+            # Store sign: 1 for positive/zero (credit), -1 for negative (debit)
+            original_sign = np.sign(premium_values)
+            # Replace 0 with 1 (treat zero as credit trade)
+            original_sign = original_sign.replace(0, 1)
+            df["Original Premium Sign"] = original_sign
+
             # Normalize premium using absolute values for both live and backtest
             if source == "live":
                 # For live data, multiply absolute value by 100 to match backtest format
@@ -330,6 +338,9 @@ class TradeDataNormalizer(BaseNormalizer):
                 elif "Initial Premium" in df.columns and "Premium" in df.columns:
                     # Both exist, prefer "Premium" and use absolute value
                     df["Premium"] = premium_values
+        else:
+            # No premium column found, default to credit (positive sign)
+            df["Original Premium Sign"] = 1
 
         return df
 
