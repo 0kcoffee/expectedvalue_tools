@@ -48,12 +48,16 @@ class HTMLReporter:
         self.strategy_name: Optional[str] = None
         self.test_kwargs: Dict[str, Any] = {}
         self.logo_base64: Optional[str] = None
+        self.icon_base64: Optional[str] = None
 
         # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
 
         # Load logo as base64
         self._load_logo()
+        
+        # Load icon as base64 (try to find icon.png in same directory as logo)
+        self._load_icon()
 
     def _load_logo(self) -> None:
         """Load logo image and convert to base64."""
@@ -66,6 +70,36 @@ class HTMLReporter:
                 self.logo_base64 = None
         except Exception:
             self.logo_base64 = None
+
+    def _load_icon(self) -> None:
+        """Load icon image and convert to base64 for favicon."""
+        try:
+            # Try to find icon.png in same directory as logo
+            if self.logo_path:
+                logo_dir = os.path.dirname(self.logo_path)
+                icon_path = os.path.join(logo_dir, "icon.png")
+                if os.path.exists(icon_path):
+                    with open(icon_path, "rb") as f:
+                        icon_data = f.read()
+                        self.icon_base64 = base64.b64encode(icon_data).decode("utf-8")
+                    return
+            
+            # Try common locations
+            possible_paths = [
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "images", "icon.png"),
+                "images/icon.png",
+                os.path.join(os.getcwd(), "images", "icon.png"),
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    with open(path, "rb") as f:
+                        icon_data = f.read()
+                        self.icon_base64 = base64.b64encode(icon_data).decode("utf-8")
+                    return
+            
+            self.icon_base64 = None
+        except Exception:
+            self.icon_base64 = None
 
     def start_report(
         self, test_name: str, strategy_name: str, test_kwargs: Optional[Dict] = None
@@ -1009,12 +1043,18 @@ class HTMLReporter:
         });
     </script>
 """
+        # Favicon
+        favicon_html = ""
+        if self.icon_base64:
+            favicon_html = f'<link rel="icon" type="image/png" href="data:image/png;base64,{self.icon_base64}">'
+        
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Report - {self.test_name}</title>
+    {favicon_html}
     {plotly_script}
     {self._get_css()}
 </head>
