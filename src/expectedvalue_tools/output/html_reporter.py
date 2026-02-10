@@ -986,7 +986,12 @@ class HTMLReporter:
         if self.test_kwargs:
             for key, value in self.test_kwargs.items():
                 if value is not None:
-                    metadata_items.append(('<div class="metadata-item">', f'<span class="metadata-label">{key.replace("_", " ").title()}</span>', f'<span class="metadata-value">{value}</span>', '</div>'))
+                    # Format boolean values
+                    if isinstance(value, bool):
+                        display_value = "Yes" if value else "No"
+                    else:
+                        display_value = value
+                    metadata_items.append(('<div class="metadata-item">', f'<span class="metadata-label">{key.replace("_", " ").title()}</span>', f'<span class="metadata-value">{display_value}</span>', '</div>'))
 
         metadata_html = f"""
         <div class="metadata">

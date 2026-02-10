@@ -65,6 +65,10 @@ class DynamicAllocationSimulator:
                 - "num_trades": Number of trades executed
                 - "over_allocated_trades": Number of trades forced to 1-lot when allocation was insufficient
                 - "over_allocation_details": List of dicts with over-allocation info (if force_one_lot=True)
+                - "skipped_trades": Number of trades skipped due to insufficient allocation
+                - "skipped_trade_details": List of dicts with skipped trade info
+                - "actual_allocations": List of actual allocation percentages for each executed trade
+                - "target_allocations": List of target allocation percentages for each trade
         """
         if len(data) == 0:
             return {
@@ -76,6 +80,10 @@ class DynamicAllocationSimulator:
                 "num_trades": 0,
                 "over_allocated_trades": 0,
                 "over_allocation_details": [],
+                "skipped_trades": 0,
+                "skipped_trade_details": [],
+                "actual_allocations": [],
+                "target_allocations": [],
             }
 
         # Sort by datetime to process trades chronologically
@@ -89,6 +97,11 @@ class DynamicAllocationSimulator:
         current_portfolio = self.portfolio_size
         over_allocated_trades = 0
         over_allocation_details = []
+        skipped_trades = 0
+        skipped_trade_details = []
+        actual_allocations = []
+        target_allocations = []
+        actual_allocations_by_strategy = {}  # Track allocations per strategy
 
         # Check if this is a portfolio (multiple strategies)
         is_portfolio = False
@@ -119,7 +132,7 @@ class DynamicAllocationSimulator:
                 allocation_pct = allocation_map.get(strategy, self.allocation_pct)
             else:
                 allocation_pct = self.allocation_pct
-
+            
             # Calculate contracts to trade
             contracts_result = self._calculate_contracts_to_trade(
                 row, current_portfolio, allocation_pct, has_margin_data
@@ -140,6 +153,57 @@ class DynamicAllocationSimulator:
                     })
             else:
                 contracts_to_trade = contracts_result
+
+            # Check if trade was skipped (contracts_to_trade == 0 and not forced)
+            if contracts_to_trade == 0 and not self.force_one_lot:
+                skipped_trades += 1
+                # Calculate what allocation would be needed
+                margin_per_contract = 0.0
+                required_allocation_pct = 0.0
+                if has_margin_data and "Margin Req." in row.index:
+                    margin_req = row.get("Margin Req.", 0)
+                    contracts_in_trade = row.get("No. of Contracts", 1)
+                    if margin_req > 0 and contracts_in_trade > 0:
+                        margin_per_contract = margin_req / contracts_in_trade
+                        required_allocation_pct = (margin_per_contract / current_portfolio * 100) if current_portfolio > 0 else 0.0
+                
+                skipped_trade_details.append({
+                    "trade_index": idx,
+                    "date": row.get("datetime_opened") if "datetime_opened" in row else None,
+                    "strategy": row.get("Strategy", ""),
+                    "target_allocation_pct": allocation_pct,
+                    "required_allocation_pct": required_allocation_pct,
+                    "margin_per_contract": margin_per_contract,
+                    "portfolio_at_time": current_portfolio,
+                })
+                # Skip this trade - don't update portfolio or add to equity curve
+                continue
+
+            # Store target allocation (only for executed trades)
+            target_allocations.append(allocation_pct)
+
+            # Calculate actual allocation percentage for this trade
+            actual_allocation_pct = 0.0
+            if has_margin_data and "Margin Req." in row.index:
+                margin_req = row.get("Margin Req.", 0)
+                contracts_in_trade = row.get("No. of Contracts", 1)
+                if margin_req > 0 and contracts_in_trade > 0:
+                    margin_per_contract = margin_req / contracts_in_trade
+                    actual_margin_used = margin_per_contract * contracts_to_trade
+                    actual_allocation_pct = (actual_margin_used / current_portfolio * 100) if current_portfolio > 0 else 0.0
+            else:
+                # No margin data, use target allocation as approximation
+                actual_allocation_pct = allocation_pct
+            
+            actual_allocations.append(actual_allocation_pct)
+            
+            # Track allocation per strategy (always if Strategy column exists)
+            if "Strategy" in row.index:
+                strategy = str(row.get("Strategy", ""))
+                if strategy and strategy.strip():  # Only track non-empty strategy names
+                    if strategy not in actual_allocations_by_strategy:
+                        actual_allocations_by_strategy[strategy] = []
+                    actual_allocations_by_strategy[strategy].append(actual_allocation_pct)
 
             # Get P/L per contract
             pl_per_contract = row.get("P/L per Contract", 0)
@@ -170,6 +234,11 @@ class DynamicAllocationSimulator:
             "num_trades": len(df),
             "over_allocated_trades": over_allocated_trades,
             "over_allocation_details": over_allocation_details,
+            "skipped_trades": skipped_trades,
+            "skipped_trade_details": skipped_trade_details,
+            "actual_allocations": actual_allocations,
+            "target_allocations": target_allocations,
+            "actual_allocations_by_strategy": actual_allocations_by_strategy,
         }
 
     def _calculate_contracts_to_trade(

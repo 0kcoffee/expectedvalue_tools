@@ -10,7 +10,7 @@ import typer
 from ..parsers import BaseParser, OptionOmegaParser
 from ..normalizers import BaseNormalizer, TradeDataNormalizer
 from ..enrichers import BaseEnricher, TradeEnricher
-from ..tests import BaseTest, PowerAnalysisTest, LiveBacktestComparisonTest, DrawdownAnalysisTest, TailOverfittingTest, TrackTest
+from ..tests import BaseTest, PowerAnalysisTest, LiveBacktestComparisonTest, DrawdownAnalysisTest, TailOverfittingTest, TrackTest, PortfolioStressTest, PortfolioCorrelationTest
 from ..output.visualizers import create_histograms
 from ..output.formatters import print_box
 from ..output.html_reporter import HTMLReporter
@@ -27,7 +27,7 @@ app = typer.Typer(
 PARSERS = [OptionOmegaParser()]
 
 # Registry for tests (auto-discover)
-TESTS = [PowerAnalysisTest(), LiveBacktestComparisonTest(), DrawdownAnalysisTest(), TailOverfittingTest(), TrackTest()]
+TESTS = [PowerAnalysisTest(), LiveBacktestComparisonTest(), DrawdownAnalysisTest(), TailOverfittingTest(), TrackTest(), PortfolioStressTest(), PortfolioCorrelationTest()]
 
 # Default normalizer and enricher
 NORMALIZER = TradeDataNormalizer()
@@ -211,6 +211,10 @@ def _generate_html_report(
         _add_tail_overfitting_html(html_reporter, results)
     elif test_name == "track":
         _add_track_html(html_reporter, results)
+    elif test_name == "portfolio_stress":
+        _add_portfolio_stress_html(html_reporter, results)
+    elif test_name == "portfolio_correlation":
+        _add_portfolio_correlation_html(html_reporter, results)
 
 
 def _add_power_html(html_reporter: HTMLReporter, results: dict, data: pd.DataFrame) -> None:
@@ -732,6 +736,195 @@ def _add_track_html(html_reporter: HTMLReporter, results: dict) -> None:
         _add_calendar_html(html_reporter, calendars)
 
 
+def _add_portfolio_stress_html(html_reporter: HTMLReporter, results: dict) -> None:
+    """Add portfolio stress test content to HTML report."""
+    aggregated = results.get("aggregated_metrics", {})
+    
+    if not aggregated:
+        return
+    
+    # Add percentile curves chart if available
+    percentile_figure = results.get("percentile_figure")
+    if percentile_figure is not None:
+        html_reporter.add_chart(percentile_figure, "Percentile Equity and Drawdown Curves")
+    
+    # Worst-case scenario
+    worst_stats = []
+    worst_stats.append(("Worst Max Drawdown", f"${aggregated.get('worst_max_drawdown_dollars', 0):,.2f}", "value-negative"))
+    worst_stats.append(("Worst Max Drawdown (%)", f"{aggregated.get('worst_max_drawdown_pct', 0):.2f}%", "value-negative"))
+    worst_stats.append(("Worst Final Portfolio", f"${aggregated.get('worst_final_portfolio', 0):,.2f}", "value-negative"))
+    worst_stats.append(("Worst Total Return", f"{aggregated.get('worst_total_return', 0):.2f}%", "value-negative"))
+    worst_stats.append(("Worst CAGR", f"{aggregated.get('worst_cagr', 0):.2f}%", "value-negative"))
+    worst_stats.append(("Worst Sharpe Ratio", f"{aggregated.get('worst_sharpe', 0):.2f}", "value-negative"))
+    worst_stats.append(("Worst Longest Drawdown", f"{aggregated.get('worst_longest_drawdown_days', 0)} days", "value-negative"))
+    html_reporter.add_statistics_box("Worst-Case Scenario", worst_stats)
+    
+    # Distribution statistics
+    dist_stats = []
+    dist_stats.append(("Mean Max Drawdown", f"${aggregated.get('mean_max_drawdown_dollars', 0):,.2f}", "value-default"))
+    dist_stats.append(("Mean Max Drawdown (%)", f"{aggregated.get('mean_max_drawdown_pct', 0):.2f}%", "value-default"))
+    dist_stats.append(("Mean Final Portfolio", f"${aggregated.get('mean_final_portfolio', 0):,.2f}", "value-positive"))
+    dist_stats.append(("Mean Total Return", f"{aggregated.get('mean_total_return', 0):.2f}%", "value-positive"))
+    dist_stats.append(("Mean CAGR", f"{aggregated.get('mean_cagr', 0):.2f}%", "value-positive"))
+    dist_stats.append(("Std Dev Max Drawdown", f"${aggregated.get('std_max_drawdown_dollars', 0):,.2f}", "value-info"))
+    dist_stats.append(("Std Dev Final Portfolio", f"${aggregated.get('std_final_portfolio', 0):,.2f}", "value-info"))
+    html_reporter.add_statistics_box("Distribution Statistics", dist_stats)
+    
+    # Allocation and skipped trades statistics
+    alloc_stats = []
+    total_trades_all = aggregated.get("total_trades_all_simulations", 0)
+    mean_trades_per_sim = aggregated.get("mean_trades_per_sim", 0.0)
+    alloc_stats.append(("Total Trades (All Simulations)", f"{total_trades_all:,}", "value-info"))
+    alloc_stats.append(("Mean Trades per Simulation", f"{mean_trades_per_sim:.2f}", "value-info"))
+    
+    total_skipped = aggregated.get("total_skipped_trades", 0)
+    mean_skipped = aggregated.get("mean_skipped_trades_per_sim", 0.0)
+    max_skipped = aggregated.get("max_skipped_trades_per_sim", 0)
+    
+    if total_skipped > 0:
+        alloc_stats.append(("Total Skipped Trades", f"{total_skipped:,}", "value-warning"))
+        alloc_stats.append(("Mean Skipped per Simulation", f"{mean_skipped:.2f}", "value-warning"))
+        alloc_stats.append(("Max Skipped in Single Simulation", f"{max_skipped}", "value-negative"))
+        if total_trades_all > 0:
+            skip_rate = (total_skipped / total_trades_all) * 100
+            alloc_stats.append(("Skip Rate", f"{skip_rate:.2f}%", "value-warning"))
+    else:
+        alloc_stats.append(("Skipped Trades", "None (all trades executed)", "value-positive"))
+    
+    mean_actual = aggregated.get("mean_actual_allocation", 0.0)
+    mean_target = aggregated.get("mean_target_allocation", 0.0)
+    std_actual = aggregated.get("std_actual_allocation", 0.0)
+    
+    if mean_actual > 0:
+        alloc_stats.append(("Mean Target Allocation", f"{mean_target:.2f}%", "value-info"))
+        alloc_stats.append(("Mean Actual Allocation", f"{mean_actual:.2f}%", "value-positive"))
+        if mean_target > 0:
+            allocation_diff = mean_actual - mean_target
+            diff_class = "value-warning" if abs(allocation_diff) > 0.1 else "value-positive"
+            alloc_stats.append(("Allocation Difference", f"{allocation_diff:+.2f}%", diff_class))
+        alloc_stats.append(("Std Dev Actual Allocation", f"{std_actual:.2f}%", "value-info"))
+    
+    html_reporter.add_statistics_box("Allocation & Skipped Trades Statistics", alloc_stats)
+    
+    # Max Drawdown Percentiles
+    dd_pct_percentiles = aggregated.get("max_drawdown_pct_percentiles", {})
+    if dd_pct_percentiles:
+        dd_percentile_stats = []
+        dd_percentile_stats.append(("5th Percentile", f"{dd_pct_percentiles.get('p5', 0):.2f}%", "value-info"))
+        dd_percentile_stats.append(("25th Percentile", f"{dd_pct_percentiles.get('p25', 0):.2f}%", "value-default"))
+        dd_percentile_stats.append(("50th Percentile (Median)", f"{dd_pct_percentiles.get('p50', 0):.2f}%", "value-default"))
+        dd_percentile_stats.append(("75th Percentile", f"{dd_pct_percentiles.get('p75', 0):.2f}%", "value-warning"))
+        dd_percentile_stats.append(("95th Percentile", f"{dd_pct_percentiles.get('p95', 0):.2f}%", "value-negative"))
+        html_reporter.add_statistics_box("Max Drawdown Percentiles (%)", dd_percentile_stats)
+    
+    # Final Portfolio Percentiles
+    fp_percentiles = aggregated.get("final_portfolio_percentiles", {})
+    if fp_percentiles:
+        fp_percentile_stats = []
+        fp_percentile_stats.append(("5th Percentile", f"${fp_percentiles.get('p5', 0):,.2f}", "value-negative"))
+        fp_percentile_stats.append(("25th Percentile", f"${fp_percentiles.get('p25', 0):,.2f}", "value-warning"))
+        fp_percentile_stats.append(("50th Percentile (Median)", f"${fp_percentiles.get('p50', 0):,.2f}", "value-default"))
+        fp_percentile_stats.append(("75th Percentile", f"${fp_percentiles.get('p75', 0):,.2f}", "value-positive"))
+        fp_percentile_stats.append(("95th Percentile", f"${fp_percentiles.get('p95', 0):,.2f}", "value-positive"))
+        html_reporter.add_statistics_box("Final Portfolio Value Percentiles", fp_percentile_stats)
+    
+    # Total Return Percentiles
+    tr_percentiles = aggregated.get("total_return_percentiles", {})
+    if tr_percentiles:
+        tr_percentile_stats = []
+        tr_percentile_stats.append(("5th Percentile", f"{tr_percentiles.get('p5', 0):.2f}%", "value-negative"))
+        tr_percentile_stats.append(("25th Percentile", f"{tr_percentiles.get('p25', 0):.2f}%", "value-warning"))
+        tr_percentile_stats.append(("50th Percentile (Median)", f"{tr_percentiles.get('p50', 0):.2f}%", "value-default"))
+        tr_percentile_stats.append(("75th Percentile", f"{tr_percentiles.get('p75', 0):.2f}%", "value-positive"))
+        tr_percentile_stats.append(("95th Percentile", f"{tr_percentiles.get('p95', 0):.2f}%", "value-positive"))
+        html_reporter.add_statistics_box("Total Return Percentiles (%)", tr_percentile_stats)
+
+
+def _add_portfolio_correlation_html(html_reporter: HTMLReporter, results: dict) -> None:
+    """Add portfolio correlation test content to HTML report."""
+    correlation_matrices = results.get("correlation_matrices", {})
+    statistical_metrics = results.get("statistical_metrics", {})
+    figures = results.get("figures", {})
+    
+    # Add correlation heatmaps
+    heatmaps = figures.get("heatmaps", {})
+    for matrix_key, figure in heatmaps.items():
+        if figure is not None:
+            title = matrix_key.replace("_", " ").title()
+            html_reporter.add_chart(figure, f"Correlation Heatmap - {title}")
+    
+    # Add scatter plot matrix
+    scatter_fig = figures.get("scatter_matrix")
+    if scatter_fig is not None:
+        html_reporter.add_chart(scatter_fig, "Strategy Returns Scatter Plot Matrix")
+    
+    # Add time series overlay
+    time_series_fig = figures.get("time_series")
+    if time_series_fig is not None:
+        html_reporter.add_chart(time_series_fig, "Strategy Equity Curves Overlay")
+    
+    # Add rolling correlation plots
+    rolling_fig = figures.get("rolling_correlations")
+    if rolling_fig is not None:
+        html_reporter.add_chart(rolling_fig, "Rolling Correlations Over Time")
+    
+    # Add correlation matrices as tables
+    for matrix_key, title in [
+        ("pearson_returns", "Pearson Correlation - Returns"),
+        ("spearman_returns", "Spearman Correlation - Returns"),
+        ("pearson_cumulative", "Pearson Correlation - Cumulative Returns"),
+        ("spearman_cumulative", "Spearman Correlation - Cumulative Returns"),
+    ]:
+        if matrix_key in correlation_matrices:
+            corr_matrix = correlation_matrices[matrix_key]
+            html_reporter.add_table(corr_matrix, title)
+            
+            # Add p-values if available
+            pvalue_key = f"{matrix_key}_pvalues"
+            if pvalue_key in correlation_matrices:
+                pvalues = correlation_matrices[pvalue_key]
+                html_reporter.add_table(pvalues, f"{title} - P-Values")
+    
+    # Add statistical summary
+    for matrix_name in [
+        "pearson_returns",
+        "spearman_returns",
+        "pearson_cumulative",
+        "spearman_cumulative",
+    ]:
+        mean_key = f"{matrix_name}_mean"
+        if mean_key not in statistical_metrics:
+            continue
+        
+        stats = []
+        stats.append(("Mean Correlation", f"{statistical_metrics[mean_key]:.4f}", "value-info"))
+        std_key = f"{matrix_name}_std"
+        if std_key in statistical_metrics:
+            stats.append(("Std Deviation", f"{statistical_metrics[std_key]:.4f}", "value-info"))
+        min_key = f"{matrix_name}_min"
+        if min_key in statistical_metrics:
+            stats.append(("Min Correlation", f"{statistical_metrics[min_key]:.4f}", "value-warning"))
+        max_key = f"{matrix_name}_max"
+        if max_key in statistical_metrics:
+            stats.append(("Max Correlation", f"{statistical_metrics[max_key]:.4f}", "value-positive"))
+        median_key = f"{matrix_name}_median"
+        if median_key in statistical_metrics:
+            stats.append(("Median Correlation", f"{statistical_metrics[median_key]:.4f}", "value-info"))
+        
+        max_pair = statistical_metrics.get(f"{matrix_name}_max_pair")
+        max_value = statistical_metrics.get(f"{matrix_name}_max_value")
+        if max_pair and max_value is not None:
+            stats.append(("Highest Correlation Pair", f"{max_pair[0]} vs {max_pair[1]} ({max_value:.4f})", "value-positive"))
+        
+        min_pair = statistical_metrics.get(f"{matrix_name}_min_pair")
+        min_value = statistical_metrics.get(f"{matrix_name}_min_value")
+        if min_pair and min_value is not None:
+            stats.append(("Lowest Correlation Pair", f"{min_pair[0]} vs {min_pair[1]} ({min_value:.4f})", "value-warning"))
+        
+        title = matrix_name.replace("_", " ").title() + " - Summary"
+        html_reporter.add_statistics_box(title, stats)
+
+
 def _add_calendar_html(html_reporter: HTMLReporter, calendars: dict) -> None:
     """Add calendar visualizations to HTML report."""
     weekly = calendars.get("weekly", {})
@@ -1247,6 +1440,295 @@ def test_drawdown(
 
         # Process file
         _process_file(file_path, test, test_kwargs, output_dir)
+
+        # Print disclaimer
+        _print_disclaimer()
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@test_app.command("portfolio_stress")
+def test_portfolio_stress(
+    file_path: str = typer.Argument(..., help="Path to portfolio data file"),
+    portfolio_size: float = typer.Option(
+        100000.0, "--portfolio-size", "-p", help="Initial portfolio size (default: 100000)"
+    ),
+    allocation: float = typer.Option(
+        1.0, "--allocation", "-a", help="Default allocation percentage (default: 1.0)"
+    ),
+    simulations: int = typer.Option(
+        10000, "--simulations", "-s", help="Number of Monte Carlo simulations (default: 10000)"
+    ),
+    force_one_lot: bool = typer.Option(
+        False, "--force-one-lot", "-f", help="Force at least 1 contract even when allocation is insufficient"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o", help="Directory to save outputs"
+    ),
+    html_report: bool = typer.Option(
+        False, "--html-report", help="Generate HTML report"
+    ),
+):
+    """
+    Perform Monte Carlo stress testing on portfolio backtests.
+    
+    Generates thousands of simulations by sampling with replacement from each strategy's
+    trade distribution, combines them into portfolio equity curves using dynamic allocation,
+    and analyzes worst-case scenarios including max drawdown and comprehensive risk metrics.
+    
+    Examples:
+        evtools test portfolio_stress portfolio.csv --portfolio-size 100000 --allocation 1.5 --simulations 10000
+        evtools test portfolio_stress portfolio.csv -p 50000 -a 2.0 -s 5000
+    """
+    # Validate file exists
+    if not Path(file_path).exists():
+        typer.echo(f"Error: File not found: {file_path}", err=True)
+        raise typer.Exit(1)
+
+    # Validate allocation
+    if allocation <= 0:
+        typer.echo("Error: allocation must be greater than 0", err=True)
+        raise typer.Exit(1)
+
+    # Validate simulations
+    if simulations <= 0:
+        typer.echo("Error: simulations must be greater than 0", err=True)
+        raise typer.Exit(1)
+
+    # Print header
+    _print_header()
+
+    try:
+        # Find test
+        test = _find_test("portfolio_stress")
+
+        # Parse file to get metadata
+        parser = _find_parser(file_path)
+        df = parser.parse(file_path)
+        metadata = parser.get_metadata(df)
+
+        # Normalize
+        df = NORMALIZER.normalize(df)
+
+        # Enrich
+        df = ENRICHER.enrich(df)
+
+        # Check if portfolio (multiple strategies)
+        is_portfolio = metadata.get("is_portfolio", False)
+        strategies = metadata.get("strategies", [])
+
+        # Calculate average allocations from enriched data if available
+        calculated_allocations = {}
+        if "Used Allocation" in df.columns:
+            for strategy in strategies:
+                strategy_df = df[df["Strategy"] == strategy]
+                if len(strategy_df) > 0:
+                    avg_allocation = strategy_df["Used Allocation"].mean()
+                    if not (np.isnan(avg_allocation) or np.isinf(avg_allocation) or avg_allocation <= 0):
+                        calculated_allocations[strategy] = float(avg_allocation)
+
+        strategy_allocations = {}
+        if is_portfolio and len(strategies) > 1:
+            # Prompt for each strategy allocation with calculated defaults
+            print(f"\n{Colors.BRIGHT_CYAN}Portfolio detected with {len(strategies)} strategies.{Colors.RESET}")
+            if calculated_allocations:
+                print(f"{Colors.DIM}Calculated average allocations from historical data. Enter desired allocation % for each strategy:{Colors.RESET}\n")
+            else:
+                print(f"{Colors.DIM}Enter desired allocation % for each strategy (default: {allocation}%):{Colors.RESET}\n")
+            
+            for strategy in strategies:
+                # Use calculated allocation as default if available, otherwise use provided default
+                default_alloc = calculated_allocations.get(strategy, allocation)
+                if calculated_allocations.get(strategy):
+                    prompt = f"Allocation % for '{strategy}' [calculated: {default_alloc:.2f}%]: "
+                else:
+                    prompt = f"Allocation % for '{strategy}' [{default_alloc}%]: "
+                try:
+                    user_input = input(prompt).strip()
+                    if user_input:
+                        strategy_allocations[strategy] = float(user_input)
+                    else:
+                        strategy_allocations[strategy] = default_alloc
+                except (ValueError, KeyboardInterrupt):
+                    typer.echo(f"\nUsing default allocation {default_alloc:.2f}% for '{strategy}'")
+                    strategy_allocations[strategy] = default_alloc
+        else:
+            # Single strategy, use default allocation
+            strategy_allocations = None
+
+        # Initialize HTML reporter if requested
+        html_reporter = None
+        if html_report:
+            # Find logo path - try multiple locations
+            logo_path = None
+            possible_paths = [
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "images", "logo.png"),
+                "images/logo.png",
+                os.path.join(os.getcwd(), "images", "logo.png"),
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    logo_path = path
+                    break
+            
+            if logo_path:
+                html_reporter = HTMLReporter(logo_path)
+            else:
+                html_reporter = HTMLReporter("")
+            html_reporter.start_report(
+                test.get_name(),
+                "Portfolio Stress Test",
+                {
+                    "portfolio_size": portfolio_size,
+                    "allocation": allocation,
+                    "simulations": simulations,
+                    "force_one_lot": force_one_lot,
+                }
+            )
+
+        # Prepare test kwargs
+        test_kwargs = {
+            "portfolio_size": portfolio_size,
+            "allocation_pct": allocation,
+            "strategy_allocations": strategy_allocations if strategy_allocations else None,
+            "simulations": simulations,
+            "force_one_lot": force_one_lot,
+            "output_dir": output_dir,
+        }
+
+        # Run test on entire portfolio (not split by strategy)
+        results = test.run(df, verbose=True, **test_kwargs)
+
+        # Generate HTML report if requested
+        if html_reporter:
+            # Get percentile figure from results
+            percentile_figure = results.get("percentile_figure")
+            _generate_html_report(html_reporter, test, results, df, percentile_figure)
+            report_path = html_reporter.save_report()
+            print(f"\n{Colors.BRIGHT_GREEN}HTML report saved to: {report_path}{Colors.RESET}")
+
+        # Print disclaimer
+        _print_disclaimer()
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@test_app.command("portfolio_correlation")
+def test_portfolio_correlation(
+    file_path: str = typer.Argument(..., help="Path to portfolio data file"),
+    starting_capital: float = typer.Option(
+        100000.0, "--starting-capital", "-c", help="Starting capital for equity curve calculation (default: 100000)"
+    ),
+    rolling_window: int = typer.Option(
+        30, "--rolling-window", "-w", help="Rolling window size for correlation (default: 30 trades)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o", help="Directory to save outputs"
+    ),
+    html_report: bool = typer.Option(
+        False, "--html-report", help="Generate HTML report"
+    ),
+):
+    """
+    Analyze correlation between all portfolio strategies.
+    
+    Calculates Pearson and Spearman correlation coefficients on both returns and cumulative returns,
+    includes rolling correlation analysis, and generates comprehensive visualizations including
+    heatmaps, scatter plots, time series overlays, and rolling correlation plots.
+    
+    Examples:
+        evtools test portfolio_correlation portfolio.csv --starting-capital 100000 --rolling-window 30
+        evtools test portfolio_correlation portfolio.csv -c 50000 -w 50 --html-report
+    """
+    # Validate file exists
+    if not Path(file_path).exists():
+        typer.echo(f"Error: File not found: {file_path}", err=True)
+        raise typer.Exit(1)
+
+    # Validate rolling window
+    if rolling_window <= 0:
+        typer.echo("Error: rolling_window must be greater than 0", err=True)
+        raise typer.Exit(1)
+
+    # Print header
+    _print_header()
+
+    try:
+        # Find test
+        test = _find_test("portfolio_correlation")
+
+        # Parse file to get metadata
+        parser = _find_parser(file_path)
+        df = parser.parse(file_path)
+        metadata = parser.get_metadata(df)
+
+        # Normalize
+        df = NORMALIZER.normalize(df)
+
+        # Enrich
+        df = ENRICHER.enrich(df)
+
+        # Check if portfolio (multiple strategies)
+        is_portfolio = metadata.get("is_portfolio", False)
+        strategies = metadata.get("strategies", [])
+
+        if not is_portfolio or len(strategies) < 2:
+            typer.echo("Error: Portfolio correlation test requires at least 2 strategies", err=True)
+            raise typer.Exit(1)
+
+        # Initialize HTML reporter if requested
+        html_reporter = None
+        if html_report:
+            # Find logo path - try multiple locations
+            logo_path = None
+            possible_paths = [
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "images", "logo.png"),
+                "images/logo.png",
+                os.path.join(os.getcwd(), "images", "logo.png"),
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    logo_path = path
+                    break
+            
+            if logo_path:
+                html_reporter = HTMLReporter(logo_path)
+            else:
+                html_reporter = HTMLReporter("")
+            html_reporter.start_report(
+                test.get_name(),
+                "Portfolio Correlation Analysis",
+                {
+                    "starting_capital": starting_capital,
+                    "rolling_window": rolling_window,
+                }
+            )
+
+        # Prepare test kwargs
+        test_kwargs = {
+            "starting_capital": starting_capital,
+            "rolling_window": rolling_window,
+            "output_dir": output_dir,
+        }
+
+        # Run test on entire portfolio (not split by strategy)
+        results = test.run(df, verbose=True, **test_kwargs)
+
+        # Generate HTML report if requested
+        if html_reporter:
+            _generate_html_report(html_reporter, test, results, df)
+            report_path = html_reporter.save_report()
+            print(f"\n{Colors.BRIGHT_GREEN}HTML report saved to: {report_path}{Colors.RESET}")
 
         # Print disclaimer
         _print_disclaimer()

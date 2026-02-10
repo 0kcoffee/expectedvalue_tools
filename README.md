@@ -309,6 +309,167 @@ evtools test track portfolio-track.csv -c 50000 -f 150 -o ./output
 - Strategy statistics table (color-coded by recency)
 - Weekly and monthly profitability calendars
 
+### Portfolio Stress Test (`portfolio_stress`)
+
+**Description**: Performs Monte Carlo stress testing on portfolio backtests. Generates thousands of simulations by sampling with replacement from each strategy's trade distribution, combines them into portfolio equity curves using dynamic allocation, and analyzes worst-case scenarios including max drawdown and comprehensive risk metrics.
+
+**Logic**:
+1. **Strategy Distribution Extraction**: For each strategy in the portfolio, extracts the P/L per contract distribution
+2. **Monte Carlo Simulation**: For each simulation:
+   - Samples trades with replacement from each strategy's distribution (maintaining original trade count per strategy)
+   - Randomizes the order of sampled trades
+   - Combines trades from all strategies chronologically
+   - Generates portfolio equity curve using dynamic allocation (percentage-based per strategy)
+3. **Metrics Calculation**: For each simulation, calculates:
+   - Max drawdown (dollars and percentage)
+   - Final portfolio value
+   - Total return percentage
+   - CAGR (Compound Annual Growth Rate)
+   - Sharpe and Sortino ratios
+   - Drawdown period statistics
+4. **Aggregation**: Across all simulations, calculates:
+   - Worst-case scenarios (maximum drawdown, minimum final portfolio, etc.)
+   - Distribution statistics (mean, standard deviation)
+   - Percentiles (5th, 25th, 50th, 75th, 95th) for all key metrics
+
+**Key Metrics**:
+- **Worst Max Drawdown**: Maximum drawdown across all simulations (dollars and %)
+- **Worst Final Portfolio**: Minimum final portfolio value across all simulations
+- **Worst Total Return**: Minimum total return percentage across all simulations
+- **Worst CAGR**: Minimum CAGR across all simulations
+- **Worst Sharpe/Sortino**: Minimum risk-adjusted return metrics
+- **Distribution Statistics**: Mean and standard deviation for all metrics
+- **Percentiles**: 5th, 25th, 50th (median), 75th, and 95th percentiles for:
+  - Max drawdown (dollars and %)
+  - Final portfolio value
+  - Total return
+  - CAGR
+  - Sharpe and Sortino ratios
+
+**Usage**:
+```bash
+evtools test portfolio_stress <file> [OPTIONS]
+
+Options:
+  --portfolio-size, -p FLOAT    Initial portfolio size (default: 100000)
+  --allocation, -a FLOAT        Default allocation percentage (default: 1.0)
+  --simulations, -s INT         Number of Monte Carlo simulations (default: 10000)
+  --force-one-lot, -f          Force at least 1 contract even when allocation is insufficient
+  --output-dir, -o PATH        Directory to save outputs
+  --html-report                Generate HTML report (saved to reports_output/)
+```
+
+**Example**:
+```bash
+evtools test portfolio_stress example_data/oo/backtests/portfolios/LESS-FILTERED-0-0-2.csv --portfolio-size 100000 --allocation 1.5 --simulations 10000
+evtools test portfolio_stress portfolio.csv -p 50000 -a 2.0 -s 5000
+```
+
+**Output Includes**:
+- Test header with strategy information and simulation parameters
+- Worst-case scenario box (worst max drawdown, final portfolio, returns, etc.)
+- Distribution statistics box (mean and std dev for key metrics)
+- Percentile analysis boxes (5th, 25th, 50th, 75th, 95th percentiles for max drawdown, final portfolio, and total return)
+
+**Interpretation**:
+- **Worst-case metrics** show the most adverse outcomes across thousands of simulations
+- **Percentiles** help understand the distribution of outcomes - e.g., 95th percentile max drawdown means 95% of simulations had lower drawdowns
+- **Distribution statistics** provide expected values and variability
+- Use this test to stress test portfolio robustness and understand tail risk
+
+### Portfolio Correlation Test (`portfolio_correlation`)
+
+**Description**: Analyzes correlation between all portfolio strategies using Pearson and Spearman correlation coefficients on both returns and cumulative returns. Includes rolling correlation analysis, comprehensive visualizations (heatmaps, scatter plots, time series), and statistical significance testing.
+
+**Logic**:
+1. **Data Preparation**: 
+   - Calculates trade-level returns per strategy (P/L per Contract)
+   - Builds cumulative returns (equity curves) per strategy from starting capital
+   - Aligns all strategy data to a common time index for correlation calculations
+2. **Correlation Matrices**: Calculates four correlation matrices:
+   - Pearson correlation for returns (linear relationships)
+   - Spearman correlation for returns (rank-based, handles non-linear relationships)
+   - Pearson correlation for cumulative returns
+   - Spearman correlation for cumulative returns
+3. **Statistical Significance**: Calculates p-values for all correlations (if scipy is available)
+4. **Rolling Correlation**: Calculates time-varying correlations using a rolling window:
+   - Tracks correlation stability over time
+   - Identifies periods of high/low correlation
+   - Helps detect regime changes in strategy relationships
+5. **Statistical Metrics**: Calculates comprehensive statistics:
+   - Mean, median, min, max correlations
+   - Standard deviation of correlations
+   - Strategy pairs with highest/lowest correlations
+   - Correlation stability metrics (from rolling correlations)
+
+**Key Metrics**:
+- **Correlation Matrices**: Four matrices showing pairwise correlations between all strategies
+  - Pearson Returns: Linear correlation of trade-level returns
+  - Spearman Returns: Rank-based correlation of trade-level returns
+  - Pearson Cumulative: Linear correlation of equity curves
+  - Spearman Cumulative: Rank-based correlation of equity curves
+- **P-Values**: Statistical significance of correlations (if scipy available)
+- **Mean Correlation**: Average correlation across all strategy pairs
+- **Min/Max Correlations**: Lowest and highest correlation pairs
+- **Rolling Correlation Stability**: Mean and standard deviation of rolling correlations over time
+
+**Usage**:
+```bash
+evtools test portfolio_correlation <file> [OPTIONS]
+
+Options:
+  --starting-capital, -c FLOAT    Starting capital for equity curve calculation (default: 100000)
+  --rolling-window, -w INT        Rolling window size for correlation (default: 30 trades)
+  --output-dir, -o PATH          Directory to save outputs
+  --html-report                  Generate HTML report (saved to reports_output/)
+```
+
+**Example**:
+```bash
+evtools test portfolio_correlation example_data/oo/backtests/portfolios/LESS-FILTERED-0-0-2.csv --starting-capital 100000 --rolling-window 30
+evtools test portfolio_correlation portfolio.csv -c 50000 -w 50 --html-report
+```
+
+**Output Includes**:
+- Test header with strategy information
+- Four correlation matrices (Pearson/Spearman for returns/cumulative) printed as tables
+- P-value matrices (if scipy available)
+- Statistical summary boxes for each correlation type:
+  - Mean, median, min, max correlations
+  - Standard deviation
+  - Highest and lowest correlation pairs
+- Visualizations (if matplotlib available):
+  - Correlation heatmaps (4 types) - color-coded correlation matrices
+  - Scatter plot matrix - pairwise scatter plots for all strategy pairs
+  - Time series overlay - all strategy equity curves on same plot
+  - Rolling correlation plots - time series of rolling correlations for key pairs
+
+**Interpretation**:
+- **High Correlation (>0.7)**: Strategies move together - may provide less diversification benefit
+- **Low Correlation (<0.3)**: Strategies are relatively independent - better diversification
+- **Negative Correlation**: Strategies move in opposite directions - potential hedging benefit
+- **Rolling Correlations**: Show how strategy relationships change over time
+  - Stable correlations indicate consistent relationships
+  - Volatile correlations may indicate regime changes or strategy evolution
+- **P-Values**: Indicate statistical significance (typically <0.05 considered significant)
+- **Returns vs Cumulative**: 
+  - Returns correlation shows short-term relationship
+  - Cumulative correlation shows long-term relationship (may differ due to compounding effects)
+
+**Best Practices**:
+- Use both Pearson and Spearman correlations:
+  - Pearson for linear relationships
+  - Spearman for non-linear or rank-based relationships
+- Analyze both returns and cumulative returns:
+  - Returns show trade-level relationships
+  - Cumulative shows portfolio-level relationships
+- Monitor rolling correlations to detect:
+  - Strategy drift (correlations changing over time)
+  - Market regime changes
+  - Strategy effectiveness changes
+- Aim for low to moderate correlations (0.2-0.5) for better diversification
+- Avoid highly correlated strategies (>0.8) unless intentionally seeking concentration
+
 ## Data Format Support
 
 ### Option Omega CSV
@@ -357,8 +518,13 @@ evtools test <test_name> <file_path> [OPTIONS]
 - `--tail-direction, -d`: Which tail events to analyze: 'all', 'positive', or 'negative' (default: 'all') - for `tail_overfitting` test
 - `--starting-capital, -c`: Starting capital for equity curve calculation (default: 100000) - for `track` test
 - `--extra-fees, -f`: Monthly extra fees (e.g., automation costs) (default: 0.0) - for `track` test
+- `--portfolio-size, -p`: Initial portfolio size (default: 100000) - for `portfolio_stress` test
+- `--allocation, -a`: Default allocation percentage (default: 1.0) - for `portfolio_stress` test
+- `--simulations, -s`: Number of Monte Carlo simulations (default: 10000) - for `portfolio_stress` test
+- `--force-one-lot, -f`: Force at least 1 contract even when allocation is insufficient - for `portfolio_stress` test
+- `--starting-capital, -c`: Starting capital for equity curve calculation (default: 100000) - for `portfolio_correlation` test
+- `--rolling-window, -w`: Rolling window size for correlation (default: 30 trades) - for `portfolio_correlation` test
 - `--output-dir, -o`: Directory to save histogram images
-- `--html-report`: Generate HTML report (saved to reports_output/)
 - `--html-report`: Generate HTML report (saved to reports_output/)
 
 #### `list-tests`
@@ -439,6 +605,41 @@ evtools test track example_data/oo/live/portfolio-track.csv \
   --starting-capital 100000 \
   --extra-fees 150 \
   --output-dir ./output
+```
+
+### Portfolio Correlation Analysis
+
+Analyze correlation between all portfolio strategies:
+
+```bash
+evtools test portfolio_correlation example_data/oo/backtests/portfolios/LESS-FILTERED-0-0-2.csv \
+  --starting-capital 100000 \
+  --rolling-window 30 \
+  --html-report
+
+# With custom rolling window
+evtools test portfolio_correlation portfolio.csv \
+  -c 50000 \
+  -w 50 \
+  -o ./output
+```
+
+### Portfolio Stress Test
+
+Perform Monte Carlo stress testing on portfolio backtests:
+
+```bash
+evtools test portfolio_stress example_data/oo/backtests/portfolios/LESS-FILTERED-0-0-2.csv \
+  --portfolio-size 100000 \
+  --allocation 1.5 \
+  --simulations 10000
+
+# With custom parameters
+evtools test portfolio_stress portfolio.csv \
+  -p 50000 \
+  -a 2.0 \
+  -s 5000 \
+  --force-one-lot
 ```
 
 ## Architecture

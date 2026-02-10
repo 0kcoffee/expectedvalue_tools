@@ -14,7 +14,8 @@ class TradeEnricher(BaseEnricher):
 
         Currently adds:
         - Win rate (if not already present)
-        - Used Allocation (for backtest dataframes only)
+        - Funds at Open (calculated from Funds at Close and P/L, for backtest dataframes only)
+        - Used Allocation (calculated from Margin Req. and Funds at Open, for backtest dataframes only)
         - Additional statistics can be added here
 
         Args:
@@ -43,8 +44,8 @@ class TradeEnricher(BaseEnricher):
             if "Win Rate" not in df.columns:
                 df["Win Rate"] = (df["P/L per Contract"] > 0).astype(float)
 
-        # Calculate Used Allocation for backtest dataframes
-        # Formula: (Funds at Close + P/L) / Funds at Close gives us the ratio of Funds at Open to Funds at Close
+        # Calculate Funds at Open and Used Allocation for backtest dataframes
+        # Formula: Funds at Open = Funds at Close - P/L (since P/L = Funds at Close - Funds at Open)
         # Then we calculate the allocation percentage: (Margin Req. / Funds at Open) * 100
         # This shows the percentage of portfolio used at the time of each trade
         if "Funds at Close" in df.columns and "P/L" in df.columns and "Margin Req." in df.columns:
@@ -52,13 +53,14 @@ class TradeEnricher(BaseEnricher):
             pl = df["P/L"]
             margin_req = df["Margin Req."]
             
-            # Calculate: (Funds at close + P/L) / Funds at close = Funds at Open / Funds at Close
-            # When P/L is negative (loss), Funds at Close + P/L = Funds at Open
-            funds_at_open_ratio = (funds_at_close + pl) / funds_at_close
-            funds_at_open_ratio = funds_at_open_ratio.replace([np.inf, -np.inf], np.nan)
+            # Calculate Funds at Open: Funds at Open = Funds at Close - P/L
+            # When P/L is negative (loss), Funds at Close - P/L = Funds at Open (which is higher)
+            # When P/L is positive (gain), Funds at Close - P/L = Funds at Open (which is lower)
+            funds_at_open = funds_at_close - pl
+            funds_at_open = funds_at_open.replace([np.inf, -np.inf], np.nan)
             
-            # Calculate Funds at Open from the ratio
-            funds_at_open = funds_at_close * funds_at_open_ratio
+            # Add Funds at Open column
+            df["Funds at Open"] = funds_at_open.astype(float)
             
             # Calculate allocation percentage: (Margin Req. / Funds at Open) * 100
             # Handle division by zero and invalid values
